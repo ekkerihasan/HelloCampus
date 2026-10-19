@@ -1,0 +1,318 @@
+/* Hello Campus "luxe" theme: a visual layer over App.css. Selectors are prefixed with :root so they win over
+   App.css without touching component logic. Fonts are self-hosted (@fontsource) so the demo works offline. */
+@import '@fontsource-variable/fraunces/full.css';
+@import '@fontsource-variable/manrope/index.css';
+
+:root {
+  --ink: #1d1726;
+  --ink-soft: #4a4254;
+  --muted: #80776b;
+  --plum: #3a2950;
+  --plum-2: #57426f;
+  --plum-3: #7a6493;
+  --gold: #b8925a;
+  --gold-2: #d4b47c;
+  --gold-soft: #f1e6cf;
+  --ivory: #f8f4ec;
+  --paper: #fffdf9;
+  --line: #e9e1d2;
+  --line-strong: #dccfb8;
+  --ok: #2f6d5a;
+  --bad: #a14e49;
+  --serif: 'Fraunces Variable', 'Fraunces', Georgia, 'Times New Roman', serif;
+  --sans: 'Manrope Variable', 'Manrope', 'Segoe UI', system-ui, sans-serif;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --shadow-1: 0 1px 2px rgba(29, 23, 38, .05), 0 6px 18px -8px rgba(29, 23, 38, .12);
+  --shadow-2: 0 2px 4px rgba(29, 23, 38, .05), 0 18px 40px -16px rgba(29, 23, 38, .28);
+  --gold-ring: 0 0 0 3px rgba(184, 146, 90, .28);
+  font-family: var(--sans);
+  color: var(--ink);
+  background: var(--ivory);
+  font-feature-settings: 'ss01', 'cv11';
+}
+
+:root body {
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(212, 180, 124, .18), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(87, 66, 111, .10), transparent 60%),
+    var(--ivory);
+  background-attachment: fixed;
+}
+
+/* Type: a rich display serif for headings and numbers, a clean sans for reading. */
+:root h1, :root h2, :root .brand, :root .visit-code strong, :root .timer, :root .empty-chat h2, :root .resume-card h2 {
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 50, 'WONK' 0;
+  letter-spacing: -.02em;
+}
+:root h1 { font-weight: 420; color: var(--ink); }
+:root h1 span, :root .welcome h1 span { color: var(--plum-3); font-style: italic; font-weight: 380; }
+:root h2 { font-weight: 460; }
+:root .eyebrow, :root .campus-label, :root .visit-code > span {
+  font-family: var(--sans); font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--gold);
+}
+:root ::selection { background: var(--gold-soft); color: var(--ink); }
+:root button:focus-visible, :root a:focus-visible, :root input:focus-visible, :root textarea:focus-visible, :root summary:focus-visible {
+  outline: 0; box-shadow: var(--gold-ring);
+}
+
+/* Sidebar: deep plum, gold details. */
+:root .sidebar {
+  background: linear-gradient(180deg, #2a1e3a 0%, var(--plum) 55%, #2b1f3b 100%);
+  border-right: 1px solid rgba(212, 180, 124, .18);
+  color: #efe7f6;
+}
+:root .brand { color: #fbf6ee; font-weight: 500; }
+:root .brand strong { font-weight: 650; font-style: italic; }
+:root .brand-icon {
+  background: linear-gradient(145deg, var(--gold-2), var(--gold) 55%, #93703f);
+  color: var(--plum); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 8px 20px -8px rgba(0, 0, 0, .5);
+  transition: transform .5s var(--ease);
+}
+:root .brand:hover .brand-icon { transform: rotate(-6deg) scale(1.04); }
+:root .brand-icon span { color: #fff8e8; }
+:root .campus-name { color: #f4ecfa; }
+:root .campus-name > span, :root .sidebar-note, :root .sidebar-note p { color: #bcaecb; }
+:root .sidebar-note .dot { background: var(--gold-2); box-shadow: 0 0 0 4px rgba(212, 180, 124, .18); animation: luxe-breathe 3.2s ease-in-out infinite; }
+:root .college-link { color: #d9cbe6; border-top-color: rgba(212, 180, 124, .2); transition: color .25s var(--ease); }
+:root .college-link:hover { color: var(--gold-2); }
+:root .nav-item {
+  color: #d8cce4; border-radius: 10px; position: relative;
+  transition: background .3s var(--ease), color .3s var(--ease), transform .3s var(--ease);
+}
+:root .nav-item:hover { background: rgba(255, 255, 255, .06); color: #fff; transform: translateX(2px); }
+:root .nav-item.active { background: rgba(212, 180, 124, .14); color: #fff6e6; }
+:root .nav-item.active::before {
+  content: ''; position: absolute; left: -26px; top: 22%; bottom: 22%; width: 3px; border-radius: 0 3px 3px 0;
+  background: linear-gradient(var(--gold-2), var(--gold)); animation: luxe-grow .4s var(--ease);
+}
+:root .nav-arrow { opacity: .4; transition: opacity .3s, transform .3s var(--ease); }
+:root .nav-item:hover .nav-arrow, :root .nav-item.active .nav-arrow { opacity: 1; transform: translate(2px, -2px); }
+
+/* Top bar. */
+:root .topbar { border-bottom: 1px solid var(--line); background: rgba(255, 253, 249, .6); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 5; }
+:root .connection i { box-shadow: 0 0 0 0 rgba(123, 143, 87, .5); }
+:root .connection.online i { background: #6f9a63; animation: luxe-ping 2.4s var(--ease) infinite; }
+
+/* Surfaces. */
+:root .welcome-card, :root .play-card, :root .leaderboard, :root .role-form, :root .candidate-card, :root .interview {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow-1);
+  animation: luxe-rise .5s var(--ease) both;
+}
+:root .resume-card { background: linear-gradient(160deg, #f4ecdc, #efe5d2); border: 1px solid var(--line-strong); border-radius: 18px; animation: luxe-rise .6s var(--ease) both; }
+:root .candidate-card { transition: transform .35s var(--ease), box-shadow .35s var(--ease), border-color .35s; }
+:root .candidate-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-2); border-color: var(--line-strong); }
+
+/* Inputs. */
+:root .welcome-card input, :root .resume-card input, :root .play-card input, :root .role-form textarea {
+  background: #fffefb; border: 1px solid var(--line-strong); border-radius: 12px;
+  transition: border-color .25s var(--ease), box-shadow .25s var(--ease), background .25s;
+}
+:root .welcome-card input:focus, :root .resume-card input:focus, :root .play-card input:focus, :root .role-form textarea:focus {
+  border-color: var(--gold); box-shadow: var(--gold-ring); background: #fff;
+}
+:root .composer { border: 1px solid var(--line-strong); border-radius: 18px; background: var(--paper); box-shadow: var(--shadow-2); transition: box-shadow .3s var(--ease), border-color .3s; }
+:root .composer:focus-within { border-color: var(--gold); box-shadow: var(--shadow-2), var(--gold-ring); }
+:root .composer-area { background: linear-gradient(180deg, rgba(248, 244, 236, 0), var(--ivory) 30%); }
+
+/* Buttons: plum with a gold sheen, lift on hover, settle on press. */
+:root .primary, :root .talk-button, :root .composer > button {
+  background: linear-gradient(135deg, var(--plum-2), var(--plum) 70%);
+  color: #fff8ec; border: 1px solid rgba(212, 180, 124, .35); border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 10px 24px -12px rgba(58, 41, 80, .7);
+  position: relative; overflow: hidden; isolation: isolate;
+  transition: transform .25s var(--ease), box-shadow .25s var(--ease), filter .25s;
+}
+:root .primary::after, :root .talk-button::after, :root .composer > button::after {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(110deg, transparent 30%, rgba(241, 230, 207, .28) 50%, transparent 70%);
+  transform: translateX(-120%); transition: transform .8s var(--ease);
+}
+:root .primary:hover:not(:disabled), :root .talk-button:hover:not(:disabled), :root .composer > button:hover:not(:disabled) {
+  transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 16px 30px -14px rgba(58, 41, 80, .8);
+}
+:root .primary:hover:not(:disabled)::after, :root .talk-button:hover:not(:disabled)::after, :root .composer > button:hover:not(:disabled)::after { transform: translateX(120%); }
+:root .primary:active:not(:disabled), :root .talk-button:active:not(:disabled), :root .composer > button:active:not(:disabled) { transform: translateY(0) scale(.98); }
+:root .primary span { color: var(--gold-2); transition: transform .3s var(--ease); }
+:root .primary:hover span { transform: translateX(3px); }
+:root .talk-button.recording { background: linear-gradient(135deg, #b25a52, var(--bad)); animation: luxe-pulse 1.6s ease-out infinite; }
+:root .secondary, :root .candidate-actions button, :root .chip, :root .play-camera button {
+  border-radius: 999px; border: 1px solid var(--line-strong); background: var(--paper);
+  transition: border-color .25s var(--ease), background .25s, transform .25s var(--ease), box-shadow .25s;
+}
+:root .secondary:hover, :root .candidate-actions button:hover, :root .chip:hover, :root .play-camera button:hover { border-color: var(--gold); transform: translateY(-1px); box-shadow: var(--shadow-1); }
+:root .chip.selected { background: var(--plum); color: #fff6e6; border-color: var(--plum); box-shadow: 0 8px 18px -10px rgba(58, 41, 80, .7); }
+
+/* Find Talent keyword chips. */
+:root .keyword-chips { display: flex; flex-wrap: wrap; gap: 10px 10px; margin: 4px 0 20px; padding: 0; }
+:root .keyword-chips .chip { margin: 0; padding: 7px 14px; font-size: 12px; font-weight: 600; line-height: 1.2; color: var(--ink-soft); white-space: nowrap; }
+:root .role-form textarea { display: block; margin-top: 0; }
+:root .role-form .role-actions { margin-top: 4px; }
+:root .keyword-chips .chip.selected { color: #fff6e6; }
+:root .role-form label { font-family: var(--serif); font-size: 17px; font-weight: 500; letter-spacing: -.01em; margin-bottom: 14px; }
+
+/* Mic icon button (Find Talent): round, gold ring, pulses while listening, spins while transcribing. */
+:root .mic-button {
+  width: 46px; height: 46px; border-radius: 50%; display: inline-grid; place-items: center; padding: 0;
+  border: 1px solid var(--line-strong); background: var(--paper); color: var(--plum);
+  box-shadow: var(--shadow-1); position: relative;
+  transition: transform .25s var(--ease), border-color .25s, background .25s, color .25s, box-shadow .25s;
+}
+:root .mic-button:hover:not(:disabled) { transform: translateY(-1px) scale(1.04); border-color: var(--gold); color: var(--gold); }
+:root .mic-button:active:not(:disabled) { transform: scale(.95); }
+:root .mic-button.recording { background: linear-gradient(135deg, #b25a52, var(--bad)); color: #fff; border-color: transparent; animation: luxe-pulse 1.4s ease-out infinite; }
+:root .mic-button.transcribing { color: var(--gold); }
+:root .mic-button.transcribing::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid transparent; border-top-color: var(--gold); animation: luxe-spin .9s linear infinite;
+}
+:root .mic-status { font-size: 12px; color: var(--muted); animation: luxe-rise .3s var(--ease) both; }
+:root .role-actions { align-items: center; gap: 12px; }
+
+/* Talent search loader: status line with a breathing orb, then shimmering skeleton cards. */
+:root .talent-loader { margin: 26px 0 8px; animation: luxe-rise .35s var(--ease) both; }
+:root .talent-loader p { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-soft); margin: 0 0 16px; }
+:root .loader-orb {
+  width: 14px; height: 14px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 35%, var(--gold-2), var(--gold) 60%, #8d6a3a);
+  box-shadow: 0 0 0 0 rgba(184, 146, 90, .5); animation: luxe-ping 1.4s var(--ease) infinite;
+}
+:root .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+:root .skeleton-card { padding: 22px; border-radius: 18px; border: 1px solid var(--line); background: var(--paper); box-shadow: var(--shadow-1); display: grid; gap: 12px; }
+:root .skeleton-card i {
+  display: block; height: 12px; border-radius: 999px;
+  background: linear-gradient(90deg, #efe8dc 0%, #f8f2e7 40%, #efe8dc 80%); background-size: 300% 100%;
+  animation: luxe-shimmer 1.3s ease-in-out infinite;
+}
+:root .skeleton-card i:nth-child(1) { width: 55%; height: 18px; }
+:root .skeleton-card i:nth-child(2) { width: 35%; }
+:root .skeleton-card i:nth-child(3) { width: 90%; }
+:root .skeleton-card i:nth-child(4) { width: 75%; }
+@keyframes luxe-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+/* Candidate handles: GitHub and the student-provided LinkedIn link. */
+:root .candidate-handles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+:root .candidate-handles a { color: var(--plum-2); text-decoration: none; }
+:root .candidate-handles a:hover { color: var(--gold); }
+:root .linkedin-link { padding: 3px 10px; border-radius: 999px; border: 1px solid #c9d8ea; background: #f2f7fc; color: #0a66c2 !important; font-weight: 600; transition: background .25s, transform .25s var(--ease); }
+:root .linkedin-link:hover { background: #e3eefa; transform: translateY(-1px); }
+
+/* Talent summary with voice. */
+:root .talent-summary { margin: 22px 0 6px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(160deg, #fbf7ef, #f6efe2); box-shadow: var(--shadow-1); animation: luxe-rise .4s var(--ease) both; }
+:root .talent-summary-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+:root .talent-summary .listen.on { background: var(--plum); color: #fff6e6; border-color: var(--plum); animation: luxe-pulse 1.6s ease-out infinite; }
+:root .talent-summary-list { margin: 14px 0 0; padding-left: 22px; display: grid; gap: 8px; font-size: 14px; line-height: 1.7; color: var(--ink-soft); animation: luxe-rise .35s var(--ease) both; }
+:root .talent-summary-list li::marker { color: var(--gold); font-family: var(--serif); font-weight: 600; }
+
+/* Project evidence: repo, one-line summary, matched skills. */
+:root .project-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 10px; }
+:root .project-item { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fffcf6; transition: border-color .25s, transform .25s var(--ease); }
+:root .project-item:hover { border-color: var(--gold-2); transform: translateX(2px); }
+:root .project-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+:root .project-head > a:first-child { font-weight: 700; color: var(--plum); text-decoration: none; }
+:root .project-head > a:first-child:hover { color: var(--gold); }
+:root .project-lang { font-size: 10px; padding: 2px 8px; border-radius: 999px; background: #efe9f4; color: var(--plum-2); }
+:root .project-live { font-size: 11px; color: var(--ok); text-decoration: none; margin-left: auto; }
+:root .project-summary { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); }
+:root .project-skills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+:root .project-skills span { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #e8f4ee; color: var(--ok); }
+
+/* Mode tabs and the Guide / Analyst switch. */
+:root .mode-tabs, :root .character-toggle { background: rgba(255, 253, 249, .7); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
+:root .mode-tabs button, :root .character-toggle button { border-radius: 999px; transition: background .3s var(--ease), color .3s, box-shadow .3s; }
+:root .mode-tabs button.selected, :root .character-toggle .selected { background: var(--plum); color: #fff6e6; box-shadow: 0 6px 14px -8px rgba(58, 41, 80, .8); }
+
+/* Conversation. */
+:root .conversation-toolbar { border-bottom: 1px solid var(--line); }
+:root .visit-code strong { color: var(--plum); font-weight: 500; font-variant-numeric: tabular-nums; }
+:root .hello-spark { color: var(--gold); animation: luxe-spin 12s linear infinite; }
+:root .companion-mark { color: var(--gold); animation: luxe-float 5s ease-in-out infinite; }
+:root .suggestions button {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 14px;
+  transition: transform .3s var(--ease), border-color .3s, box-shadow .3s;
+}
+:root .suggestions button:hover { transform: translateY(-2px); border-color: var(--gold-2); box-shadow: var(--shadow-1); }
+:root .suggestions button:hover b { color: var(--gold); }
+:root .message { border-radius: 18px; background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow-1); animation: luxe-rise .45s var(--ease) both; }
+:root .message.user { background: linear-gradient(135deg, #3f2d55, var(--plum)); color: #fbf5ff; border-color: transparent; }
+:root .message.user .message-label { color: var(--gold-2); }
+:root .message-label { color: var(--plum-3); letter-spacing: .08em; text-transform: uppercase; }
+:root .message-text { font-size: 14px; line-height: 1.8; color: inherit; }
+:root .message-text strong { font-weight: 700; color: var(--plum); }
+:root .message.user .message-text strong { color: #fff; }
+:root .source-chips a, :root .source-chips > span {
+  border-radius: 999px; border: 1px solid var(--line-strong); background: #fffaf0; color: var(--plum-2); padding: 6px 11px;
+  transition: background .25s var(--ease), border-color .25s, transform .25s var(--ease);
+}
+:root .source-chips a::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); margin-right: 6px; vertical-align: middle; }
+:root .source-chips a:hover { background: var(--gold-soft); border-color: var(--gold); transform: translateY(-1px); }
+:root .voice-panel { background: linear-gradient(160deg, #f3ecf7, #efe6f1); border: 1px solid #ddd0e6; border-radius: 18px; box-shadow: var(--shadow-1); }
+:root .captions { border-radius: 14px; border: 1px solid var(--line); }
+:root .camera-preview { border-radius: 14px; box-shadow: var(--shadow-2); }
+:root .error-banner { border-radius: 14px; animation: luxe-rise .4s var(--ease) both; }
+
+/* Get to Know AITM. */
+:root .play-card h1 { font-size: 30px; }
+:root .play-card h2 { font-family: var(--serif); font-size: 22px; font-weight: 460; animation: luxe-rise .45s var(--ease) both; }
+:root .timer { color: var(--plum); font-weight: 600; font-variant-numeric: tabular-nums; }
+:root .timer.low { color: var(--bad); animation: luxe-tick 1s ease-in-out infinite; }
+:root .timer-bar { height: 6px; background: #efe8dc; border-radius: 999px; }
+:root .timer-bar i { background: linear-gradient(90deg, var(--gold), var(--gold-2)); border-radius: 999px; box-shadow: 0 0 12px rgba(212, 180, 124, .6); }
+:root .option button {
+  border: 1px solid var(--line); border-radius: 14px; background: var(--paper); padding: 14px 16px;
+  transition: transform .25s var(--ease), border-color .25s, box-shadow .25s, background .25s;
+}
+:root .option:nth-child(1) button { animation: luxe-rise .4s var(--ease) both; }
+:root .option:nth-child(2) button { animation: luxe-rise .4s .05s var(--ease) both; }
+:root .option:nth-child(3) button { animation: luxe-rise .4s .1s var(--ease) both; }
+:root .option:nth-child(4) button { animation: luxe-rise .4s .15s var(--ease) both; }
+:root .option button:hover:not(:disabled) { transform: translateX(4px); border-color: var(--gold-2); box-shadow: var(--shadow-1); }
+:root .option.correct button { border-color: var(--ok); background: linear-gradient(135deg, #e8f4ee, #dcefe6); animation: luxe-pop .5s var(--ease); }
+:root .option.wrong button { border-color: var(--bad); background: #f8e7e4; animation: luxe-shake .4s var(--ease); }
+:root .sign { background: linear-gradient(145deg, var(--plum-2), var(--plum)); border-radius: 8px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15); }
+:root .sign i { background: var(--gold-soft); }
+/* Inline signs inside sentences (start-screen hint, reveal): smaller, spaced, sitting on the text line. */
+:root .play-hint { line-height: 2.2; color: var(--muted); }
+:root .play-hint .sign, :root .reveal .sign {
+  height: 20px; min-width: 22px; padding: 2px 5px; margin: 0 3px; gap: 2px;
+  vertical-align: -5px; border-radius: 6px;
+}
+:root .play-hint .sign i, :root .reveal .sign i { width: 2.5px; height: 11px; }
+:root .play-hint .sign b, :root .reveal .sign b { font-size: 12px; line-height: 16px; }
+:root .play-hint .sign + .sign { margin-left: 0; }
+:root .option kbd, :root .play-hint kbd, :root .reveal kbd {
+  font-family: var(--sans); font-size: 11px; border: 1px solid var(--line-strong); border-bottom-width: 2px;
+  border-radius: 6px; padding: 1px 7px; margin: 0 2px; background: var(--paper); color: var(--ink-soft);
+}
+:root .hold-ring { background: conic-gradient(var(--gold) calc(var(--p) * 360deg), transparent 0); border-radius: 16px; }
+:root .reveal { animation: luxe-rise .4s var(--ease) both; }
+:root .hand-box { border-color: var(--gold-2); box-shadow: 0 0 0 1px rgba(0, 0, 0, .2), 0 0 18px rgba(212, 180, 124, .45); transition: all .12s linear; }
+:root .hand-box span { background: var(--plum); color: var(--gold-soft); }
+:root .leaderboard h3 { font-family: var(--serif); font-size: 16px; font-weight: 500; }
+:root .leaderboard ol { padding-left: 22px; }
+:root .leaderboard li { padding: 6px 0; border-bottom: 1px dashed var(--line); font-variant-numeric: tabular-nums; }
+:root .leaderboard li:last-child { border-bottom: 0; }
+:root .leaderboard li:first-child { color: var(--plum); font-weight: 700; }
+:root .leaderboard li::marker { color: var(--gold); font-family: var(--serif); }
+
+/* Mobile top bar keeps the dark brand strip. */
+@media (max-width: 650px) {
+  :root .sidebar { border-bottom: 1px solid rgba(212, 180, 124, .2); }
+  :root .nav-item.active::before { display: none; }
+}
+
+@keyframes luxe-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes luxe-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes luxe-breathe { 0%, 100% { opacity: .7; } 50% { opacity: 1; } }
+@keyframes luxe-ping { 0% { box-shadow: 0 0 0 0 rgba(111, 154, 99, .45); } 80%, 100% { box-shadow: 0 0 0 7px rgba(111, 154, 99, 0); } }
+@keyframes luxe-pulse { 0% { box-shadow: 0 0 0 0 rgba(161, 78, 73, .45); } 100% { box-shadow: 0 0 0 14px rgba(161, 78, 73, 0); } }
+@keyframes luxe-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes luxe-spin { to { transform: rotate(360deg); } }
+@keyframes luxe-tick { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes luxe-pop { 0% { transform: scale(1); } 40% { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(47, 109, 90, .12); } 100% { transform: scale(1); } }
+@keyframes luxe-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  :root *, :root *::before, :root *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}

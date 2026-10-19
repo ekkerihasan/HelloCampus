@@ -1,12 +1,18 @@
-"""Visitor create, fetch, resume by code, and character preference."""
+"""Visitor create, fetch, resume by code, character preference, and Live turn memory."""
+import asyncio
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from backend.llm.characters import CharacterName
+from backend.config import settings
+from backend.memory.extract import extract_and_save
 from backend.memory.store import PURPOSES, MemoryStore, Visitor
 from backend.routes.deps import require
 
 router = APIRouter(prefix="/api/visitor")
+log = logging.getLogger("hello_campus.visitor")
 
 
 class CreateVisitor(BaseModel):
@@ -57,3 +63,27 @@ def set_character(visitor_id: str, body: CharacterUpdate, mem: MemoryStore = Dep
     if not v:
         raise HTTPException(404, "Visitor not found")
     return v
+
+
+class LiveTurn(BaseModel):
+    user: str = Field(min_length=1, max_length=settings.chat_max_message_chars)
+    assistant: str = Field(default="", max_length=settings.chat_max_message_chars)
+
+
+@router.post("/{visitor_id}/turn")
+async def live_turn(visitor_id: str, body: LiveTurn, mem: MemoryStore = Depends(require("memory")),
+                    llm=Depends(require("llm"))) -> dict:
+    """Live voice transcripts feed the same memory as chat (ADDENDUM-01 5.2): last ten turns plus extracted facts."""
+    v = await asyncio.to_thread(mem.get, visitor_id)
+    if not v:
+        raise HTTPException(404, "Visitor not found")
+    await asyncio.to_thread(mem.add_turn, v.id, "user", body.user)
+    if body.assistant:
+        await asyncio.to_thread(mem.add_turn, v.id, "assistant", body.assistant)
+    try:
+        await asyncio.wait_for(extract_and_save(llm, mem, v, body.user, body.assistant),
+                               timeout=settings.memory_extract_timeout_s)
+    except Exception:  # noqa: BLE001, memory must never break the conversation
+        log.exception("live memory extraction failed")
+        return {"saved": False}
+    return {"saved": True}

@@ -31,7 +31,7 @@ class HiringLLM:
 
 
 class HiringRAG:
-    async def retrieve(self, question, collections):
+    async def retrieve(self, question, collections, **kw):
         return [Hit(text="React project", title="Fixture project", source_url=URL,
                     collection="students", score=0.9, entity_id="fixture-student")]
 
@@ -64,6 +64,8 @@ async def test_role_match_and_unknown_url_removed(hiring_api):
     res = await client.post("/api/hiring/match", json={"visitor_id": v.id})
     assert res.status_code == 200
     assert res.json()[0]["claims"] == [{"text": "Built a React project", "url": URL}]
+    assert res.json()[0]["matched_must_have"] == ["React"]
+    assert res.json()[0]["missing_must_have"] == []
     assert "fake.invalid" not in res.text
 
 
@@ -97,3 +99,10 @@ def test_hidden_unknown_url_in_claim_rejected():
     r = Record(id="fixture", collection="students", title="Fixture", text="Synthetic",
                source_url=URL, last_checked="2026-10-19")
     assert service.filter_claims([{"text": "Read https://fake.invalid/award", "url": URL}], [r]) == []
+
+
+def test_role_spec_accepts_model_nulls_and_strings():
+    from backend.memory.store import RoleSpec
+    role = RoleSpec.model_validate({"title": "Frontend intern", "must_have": "React", "nice_to_have": None,
+                                    "level": None, "mode": None})
+    assert role.must_have == ["React"] and role.nice_to_have == [] and role.mode == "" and role.level == ""

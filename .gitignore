@@ -7,9 +7,11 @@ node_modules/
 frontend/dist/
 data/raw/*
 !data/raw/.gitkeep
-data/chroma/
 data/models/
-data/*.sqlite3
+data/memory.sqlite3
+data/quiz_scores.sqlite3
+data/*.sqlite3-journal
+logs/
 *.log
 backend/vision/weights/*.pt
 backend/vision/weights/*.onnx
@@ -17,3 +19,6 @@ frontend/*.tsbuildinfo
 training/own_frames/**/*.jpg
 training/own_frames/**/*.jpeg
 training/own_frames/**/*.png
+# Colab training outputs dropped in the repo root; the model lives in backend/vision/weights/ (ignored)
+/best.*
+/prep_report.json

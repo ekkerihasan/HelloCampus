@@ -1,8 +1,12 @@
 export type Character = 'guide' | 'analyst'
 export type Source = { title: string; url: string; collection: string; last_checked: string; citations?: number[] }
-export type Visitor = { id: string; code: string; name: string; purpose: string; character: Character; facts: Record<string, string[]>; shortlist: string[] }
-export type Health = { ok: boolean; components: Record<string, { ok: boolean; detail: string }> }
-export type Candidate = { entity_id: string; name: string; headline: string; languages: string[]; claims: { text: string; url: string }[]; sources: string[] }
+export type Visitor = { id: string; code: string; name: string; purpose: string; character: Character; language: string; facts: Record<string, string[]>; shortlist: string[] }
+export type Health = { ok: boolean; components: Record<string, { ok: boolean; detail: string }>; providers?: Record<string, { reachable: boolean; detail: string }>; live_enabled?: boolean; text_active?: string }
+export type LiveToken = { welcome_cue: string; token: string; model: string; api_version: string; expire_time: string; config: Record<string, unknown>; locked: boolean }
+export type ToolResult = Record<string, unknown> & { sources?: Source[]; related_sources?: Source[]; refusal?: boolean; error?: string }
+export type SpeechConfig = { live_enabled: boolean; server_tts: boolean; sentence_max_chars: number; recording_max_ms: number }
+export type Candidate = { entity_id: string; name: string; headline: string; languages: string[]; claims: { text: string; url: string }[]; sources: string[]; linkedin_url?: string; projects?: Project[] }
+export type Project = { name: string; url: string; summary: string; language: string; live_url: string; last_push: string; matched_skills: string[] }
 export type StreamEvent = { event: string; data: { t?: string; message?: string; sources?: Source[]; refused?: boolean; status?: string } }
 export async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const res = await fetch(path, { method, headers: body === undefined ? undefined : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
@@ -49,13 +53,22 @@ export function safeUrl(url: string): string | undefined {
 async function speechResponse(response: Response): Promise<Response> {
   if (!response.ok) {
     const error = await response.json().catch(() => null)
-    throw new Error(typeof error?.detail === 'string' ? error.detail : `Local speech is unavailable (${response.status}).`)
+    throw new Error(typeof error?.detail === 'string' ? error.detail : `Speech is unavailable (${response.status}).`)
   }
   return response
 }
-export async function transcribeAudio(audio: Blob, signal: AbortSignal): Promise<{ text: string; language: string; ms: number }> {
+export async function transcribeAudio(audio: Blob, signal: AbortSignal): Promise<{ text: string; language: string }> {
   return (await speechResponse(await fetch('/api/stt', { method: 'POST', headers: { 'Content-Type': audio.type || 'application/octet-stream' }, body: audio, signal }))).json()
 }
 export async function synthesizeSpeech(text: string, signal: AbortSignal): Promise<ArrayBuffer> {
   return (await speechResponse(await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }), signal }))).arrayBuffer()
+}
+export function callTool(name: string, args: Record<string, unknown>, visitorId: string | null, userMessage = '', signal?: AbortSignal): Promise<ToolResult> {
+  return fetch(`/api/tools/${encodeURIComponent(name)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visitor_id: visitorId, mode: 'voice', args, user_message: userMessage }), signal })
+    .then(async res => res.ok ? res.json() as Promise<ToolResult> : { error: `Tool ${name} failed (${res.status}).` })
+}
+export async function lookAt(image: Blob, question: string, signal?: AbortSignal): Promise<ToolResult> {
+  const res = await fetch(`/api/look?question=${encodeURIComponent(question)}`, { method: 'POST', headers: { 'Content-Type': image.type || 'image/jpeg' }, body: image, signal })
+  if (!res.ok) { const error = await res.json().catch(() => null); return { error: typeof error?.detail === 'string' ? error.detail : `Look failed (${res.status}).` } }
+  return res.json() as Promise<ToolResult>
 }

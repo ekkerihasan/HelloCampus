@@ -8,7 +8,8 @@ import pytest
 from scraper import scrape_github, scrape_web
 from scraper.normalize import PoliteFetcher, read_jsonl
 
-offline = pytest.mark.skipif(os.getenv("HC_OFFLINE") == "1", reason="offline run")
+# conftest blocks real network for every test (no quota spend), so public-network checks run only via HC_NETWORK=1.
+offline = pytest.mark.skipif(os.getenv("HC_NETWORK") != "1", reason="needs real network; set HC_NETWORK=1")
 
 
 def test_optin_gate(tmp_path: Path) -> None:

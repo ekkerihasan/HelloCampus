@@ -13,3 +13,10 @@ Idea quality:    4/5  Unchanged. Still personal to the judges.
 Build quality:   2/5  Provider layer is well tested with doubles (48 tests), but zero real provider calls yet (no keys), and data is still thin.
 Biggest gap: keys and data. Without keys, nothing on the new stack is proven; without M-006 and team data, most questions get refused.
 What would raise the score most in the time left: keys in .env in the next 30 minutes, M-006 scrape, and starting the Colab run as soon as the notebook is restored.
+
+## Cycle 4 (about 13:30, after black-box chat test)
+Innovation:      4/5  Unchanged.
+Idea quality:    4/5  Unchanged.
+Build quality:   2/5  Grounding and refusals are genuinely good, and every checked claim was traceable to a page. But a judge's first "hi" is refused, some answers come back empty with chips, and a third of calls hit 429.
+Biggest gap: reliability of the chat path on one free Gemini key (M-011), then the greeting (M-009) and empty answers (M-010).
+What would raise the score most in the time left: fix M-009 and M-010 (both small), then M-011 failover plus fewer calls per turn, which also cuts latency.

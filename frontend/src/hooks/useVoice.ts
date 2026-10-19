@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { request, synthesizeSpeech, transcribeAudio } from '../api/client'
+import type { SpeechConfig } from '../api/client'
 
 type CaptureState = 'idle' | 'requesting' | 'recording' | 'transcribing'
 type PlaybackState = 'idle' | 'preparing' | 'playing'
-type SpeechConfig = { recording_max_ms: number; sentence_max_chars: number }
 
 export function useVoice(onTranscript: (text: string) => void, onInterrupt: () => void) {
   const [capture, setCapture] = useState<CaptureState>('idle')
@@ -16,6 +16,8 @@ export function useVoice(onTranscript: (text: string) => void, onInterrupt: () =
   const session = useRef(0), abort = useRef(new AbortController())
   const queue = useRef<string[]>([]), pending = useRef(''), pumping = useRef(false)
   const callbacks = useRef({ onTranscript, onInterrupt }); callbacks.current = { onTranscript, onInterrupt }
+  const serverVoice = useRef(true), language = useRef('') // server TTS until it fails once, then the browser voice
+  const [browserVoice, setBrowserVoice] = useState(false)
   useEffect(() => {
     let active = true
     request<SpeechConfig>('/api/speech/config').then(value => { if (active) setConfig(value) }).catch(() => { if (active) setError('Speech settings could not load. Switch to Chat or reload to try again.') })
@@ -32,6 +34,7 @@ export function useVoice(onTranscript: (text: string) => void, onInterrupt: () =
     abort.current.abort(); abort.current = new AbortController()
     queue.current = []; pending.current = ''; pumping.current = false
     if (source.current) { try { source.current.stop() } catch { /* Already ended. */ } source.current = null }
+    window.speechSynthesis?.cancel()
     const recording = recorder.current; recorder.current = null
     if (recording && recording.state !== 'inactive') { recording.onstop = null; recording.stop() }
     releaseMicrophone(); setCaptureState('idle'); setPlayback('idle')
@@ -49,7 +52,10 @@ export function useVoice(onTranscript: (text: string) => void, onInterrupt: () =
       while (queue.current.length && active === session.current) {
         const text = queue.current.shift()!
         setPlayback('preparing')
-        const bytes = await synthesizeSpeech(text, signal)
+        if (!config?.server_tts || !serverVoice.current) { await speakInBrowser(text); continue }
+        let bytes: ArrayBuffer
+        try { bytes = await synthesizeSpeech(text, signal) }
+        catch { if (signal.aborted) return; serverVoice.current = false; setBrowserVoice(true); await speakInBrowser(text); continue }
         if (active !== session.current) return
         if (!context.current || context.current.state !== 'running') throw new Error('Tap the microphone to enable audio playback in this browser.')
         const buffer = await context.current.decodeAudioData(bytes)
@@ -65,6 +71,14 @@ export function useVoice(onTranscript: (text: string) => void, onInterrupt: () =
       if (active === session.current) { pumping.current = false; setPlayback('idle') }
     }
   }
+  function speakInBrowser(text: string): Promise<void> {
+    // Last resort voice: no quota, and most phones have Hindi and Kannada voices.
+    if (!window.speechSynthesis) return Promise.reject(new Error('Spoken replies are unavailable in this browser. You can read the answer below.'))
+    const utterance = new SpeechSynthesisUtterance(text)
+    if (language.current) utterance.lang = language.current
+    setPlayback('playing')
+    return new Promise(resolve => { utterance.onend = () => resolve(); utterance.onerror = () => resolve(); window.speechSynthesis.speak(utterance) })
+  }
   function enqueue(token: string, final = false) {
     if (!config) return
     pending.current += token
@@ -77,7 +91,8 @@ export function useVoice(onTranscript: (text: string) => void, onInterrupt: () =
       }
       if (!boundary && final) boundary = pending.current.length
       if (!boundary) break
-      const sentence = pending.current.slice(0, boundary).replace(/\[\d+\]/g, '').replace(/[*#`]/g, '').trim()
+      // Citations ([1], [1, 2], [1-3]) and markdown symbols are for the screen, never read aloud.
+      const sentence = pending.current.slice(0, boundary).replace(/\[[\d,\s\-–]+\]/g, '').replace(/[*#`]/g, '').trim()
       pending.current = pending.current.slice(boundary)
       if (sentence) queue.current.push(sentence)
     }
@@ -107,7 +122,7 @@ export function useVoice(onTranscript: (text: string) => void, onInterrupt: () =
         const signal = abort.current.signal
         void transcribeAudio(new Blob(chunks, { type: recording.mimeType }), signal).then(result => {
           if (active !== session.current) return
-          setCaptureState('idle')
+          setCaptureState('idle'); language.current = result.language || language.current
           if (!result.text.trim()) setError('I did not catch any speech. Tap the microphone and try again.')
           else callbacks.current.onTranscript(result.text)
         }).catch(e => { if (active === session.current && !signal.aborted) { setCaptureState('idle'); setError(e instanceof Error ? e.message : 'Could not transcribe that recording.') } })
@@ -133,5 +148,5 @@ export function useVoice(onTranscript: (text: string) => void, onInterrupt: () =
     try { source.current?.stop() } catch { /* Already ended. */ }
     void context.current?.close()
   }, [])
-  return { capture, playback, error, toggle, stop, enqueue, warmAudio, config }
+  return { capture, playback, error, toggle, stop, enqueue, warmAudio, config, browserVoice }
 }

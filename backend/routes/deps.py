@@ -18,3 +18,8 @@ def optional(name: str):
     def dep():
         return registry.get(name)
     return dep
+
+
+def components() -> dict:
+    """Every loaded component by name, for tool execution."""
+    return {name: registry.get(name) for name in registry.loaders if registry.get(name) is not None}

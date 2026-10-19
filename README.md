@@ -1,133 +1,113 @@
 # Hello Campus
 
-Hello Campus is a campus companion for Anjuman Institute of Technology and Management (AITM), Bhatkal. It helps visitors find campus information, discover consenting students' public work and resume conversations across devices, with source links and bounded visitor memory.
+A local campus companion for Anjuman Institute of Technology and Management (AITM), Bhatkal. Chat with a friendly Guide or a factual Analyst, follow source links, and continue your visit on another device with a four-character code.
 
-## Problem
+## Current capabilities
 
-A guest arriving for a talk, judging session or hiring visit needs practical answers: where to go, what students are building and where to eat. Those answers are scattered across campus pages, GitHub profiles, schedules and local knowledge. Hello Campus brings them into a conversational interface with a friendly Guide and a factual Analyst. Unsupported questions should receive an honest refusal rather than invented campus facts.
+- Responsive welcome, chat and hiring interface.
+- Local Ollama streaming with Guide (0.8) and Analyst (0.2).
+- Persistent Chroma retrieval with citations and minimum-score refusal.
+- Real offline snapshot of three official AITM campus pages and one achievement page.
+- SQLite visitor profiles, extracted preferences, character selection and resume codes. Only the last ten messages are retained.
+- Hiring role intake, evidence-filtered matches, shortlist, comparison, interview questions, Markdown export and README before/after generation.
+- Hiring currently has no real candidates. The opt-in CSV is empty. Locality entries are marked placeholders and never indexed.
+- Local voice mode: microphone recording, sentence-by-sentence Kokoro playback and interruption. Browser permission errors and missing models stay visible.
+- Video mode: camera overlay, hold/cooldown controls and keyboard mirrors. The ONNX runtime is implemented; actual gesture detection needs trained weights.
 
-## Current status
+The speech roundtrip works offline, but measured about 11 to 13 seconds on this laptop and misses the six-second target. YOLO training, venue accuracy, phone HTTPS checks and a full offline demo still need completion.
 
-This branch contains isolated quiz, keyboard Play and documentation work for the cloud pivot. Main-app integration is being handled separately. Formal pivot addenda are not present in this checkout; [review notes](monitor/REVIEW.md), [pitch](monitor/PITCH.md) and [game proposal](monitor/PROPOSAL-buzzer-quiz.md) describe the direction. The proposal's draft label is not a completion report.
+## Setup
 
-| Area | Present here | Remaining |
-|---|---|---|
-| Chat and retrieval | Guide/Analyst, Ollama client, Chroma semantic retrieval, source chips and threshold refusal | Cloud providers, hybrid retrieval and integrated verification |
-| Memory | SQLite profiles, extracted facts, shortlist and resume codes | Verify new voice/tool paths preserve the same rules |
-| Hiring | Role intake, URL-filtered evidence, matching, comparison, interview kit, export and README improvement | Real opted-in records and representative demo |
-| Campus data | Three campus records and one achievement record | More sources, verified locality entries and a schedule |
-| Play | Isolated quiz generation, keyboard versus/co-op and SQLite leaderboard | Main-app navigation/router integration |
-| Live voice and Look | Target architecture below | Provider wiring, real calls, device checks and measurements |
-| Gesture game | Keyboard play needs no model or camera | Training, weights, runtime integration and venue checks |
-
-The main app currently imports deleted speech/vision components in `backend/components.py` and `frontend/src/App.tsx`. Old full-app startup/build commands therefore do not demonstrate a working pivot. Historical test counts and local speech timings do not certify this branch.
-
-## Architecture
-
-The target cloud pivot retains local data, retrieval and visitor state while moving conversational inference and live media to configured providers. Cloud, hybrid retrieval, Live and Look paths below describe intended integration, not a working deployment claim.
-
-```mermaid
-flowchart LR
-    UI[Browser: chat, voice, Look] --> API[FastAPI: sessions and tools]
-    Sources[Official pages, opt-in GitHub, verified locality] --> Clean[Clean records with URLs]
-    Clean --> RAG[Hybrid retrieval: semantic + BM25]
-    API --> RAG
-    RAG --> Index[(Local Chroma)]
-    API --> Memory[(Local SQLite memory)]
-    API --> Text[Configured Groq / Gemini inference]
-    UI --> Live[Gemini Live: intended voice path]
-    Live --> API
-    Clean --> Generate[Offline quiz generation and checks]
-    Generate --> Bank[Reviewed quiz.jsonl]
-    Play[Isolated keyboard Play] --> Bank
-    Play --> Scores[(SQLite leaderboard)]
-```
-
-Chat, Live and Look should share grounded tools. Look is intended to resolve a visitor-requested poster snapshot against verified event/schedule data, without continuously streaming video. Play is separate: no model call occurs during a game, and keyboard controls work without gesture weights.
-
-## RAG and evidence
-
-Source records carry an ID, collection, title, text, source URL, check date and optional entity metadata. Collections cover campus, achievements, students and locality. Scraping respects robots.txt, identifies its User-Agent, throttles requests and caches raw responses. Refreshing sources is separate from answering a visitor.
-
-The retained baseline makes overlapping chunks, embeds them through Ollama/nomic and upserts persistent Chroma collections. Ingestion deletes stale chunks. Retrieval ranks by cosine similarity and applies a configurable confidence threshold. Generation receives selected passages and bounded history; citation chips retain evidence references.
-
-The pivot design combines semantic retrieval and BM25 keyword retrieval with rank fusion. Embedding models and fused ranks have different score distributions: the old cosine threshold cannot be blindly reused or applied to a reciprocal-rank score. Confidence gates and multilingual behavior need evaluation against real campus questions before claiming retrieval quality. This hybrid migration is outside this isolated branch.
-
-Grounding checks differ by feature:
-
-- **Chat:** retrieved context, confidence refusal and visible sources. A citation alone does not prove every generated sentence.
-- **Hiring:** evidence URLs must match URLs already stored for a currently consenting student. This blocks invented links; it does not independently establish every claim's wording.
-- **Quiz:** the source URL must exist in the input data, evidence must be a verbatim substring of the cited record, and the correct option text must appear in that evidence. Reject failures and have a human skim the accepted bank before committing it.
-
-## Keyboard Play
-
-Generate questions ahead of time from `data/clean/*.jsonl`, saving `data/clean/quiz.jsonl`. Each item contains `id`, `question`, four `options`, `answer_index`, `source_url` and `evidence`. Playing a reviewed bank needs no provider quota. With fewer than five valid questions, show that more campus data is needed.
-
-- **Versus:** `A` buzzes for player 1 and `L` for player 2. The locked player answers with `1`–`4`. A correct answer earns one point; a wrong answer or timeout offers the other player one attempt.
-- **Co-op:** player 1 uses `1`–`4`; player 2 uses `7`, `8`, `9`, `0` for options 1–4. Matching selections lock the team answer. The scoreboard tracks team score and streak bonus against a question timer.
-- **Results:** reveal the correct answer and source; persist completed scores in SQLite and show today's top ten. Player names are typed, never inferred from a camera.
-
-Main-app navigation and router wiring remain with the integration owner. The standalone preview runs independently of the broken main-app entry points. From the repository root, start the API:
-
-```powershell
-.venv\Scripts\python -m uvicorn backend.quiz.api:app --host 127.0.0.1 --port 8001
-```
-
-In a second terminal:
-
-```powershell
-npm.cmd run dev --prefix frontend -- --port 5174
-```
-
-Open [the standalone Play preview](http://localhost:5174/play.html?api=http://127.0.0.1:8001/api/quiz). Completed games persist in `data/quiz.sqlite3`, independently of visitor memory. The server derives scores from submitted game actions rather than trusting a client-posted score. Main-app integration uses the quiz router and the new `PlayMode` component with `/api/quiz` as its default API base.
-
-To produce the extractive draft from the supplied review candidates:
-
-```powershell
-.venv\Scripts\python -m backend.quiz --candidates backend/quiz/review-candidates.json
-```
-
-`make quiz` delegates to `python -m backend.quiz` where Make is available. The supplied candidates use real AITM evidence but still need human review. Online generation can use the configured provider adapter; generation is never part of gameplay. The evidence post-check also applies to supplied candidates.
-
-## Data and privacy
-
-Student ingestion is opt-in. Use `data/students_optin.csv` with `name,github_username,headline,consent`; public GitHub visibility alone is not consent. Scraping, indexing, retrieval and hiring endpoints check the current consent list. Revocation hides stale student records from subsequent retrieval/API results; previously viewed or exported information cannot be recalled.
-
-Locality placeholders must not be indexed or presented as verified recommendations. Real entries need verification and check dates. The empty student list and placeholder locality entries are data gaps, not evidence of working hiring or lunch recommendations.
-
-Visitor profiles, extracted facts and shortlists persist in local SQLite. By default only the last **ten messages** remain, counting individual user/assistant messages rather than conversation pairs. Extracted facts can outlive that window. Resume codes grant profile access and should be shared carefully; they are convenience mechanisms, not strong authentication. Leaderboard names, modes, scores and timestamps also persist locally.
-
-The design excludes face recognition and identity inference. Microphone and camera access must follow visitor action and browser permission. The application is not intended to persist audio or snapshots. Under the cloud pivot, enabled features send relevant media, prompts, retrieved passages and necessary visitor context to configured providers. **The pivot is not local-only processing.** Review provider retention/account settings and check the final implementation before claiming the media paths are privacy-verified. Keep sensitive information out of demo records and provider keys out of browser code and committed files.
-
-## Setup and validation
-
-Existing tooling uses Python 3.10/3.11 and Node.js 22.18+. From the repository root:
+Use Python 3.10 or 3.11, Node.js 22.18+, and a locally running Ollama. All commands below run from the repository root.
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\python -m pip install -r backend/requirements.txt
 npm.cmd install --prefix frontend
+Copy-Item .env.example .env
+ollama pull gemma3:1b
+ollama pull nomic-embed-text
+.venv\Scripts\python -m backend.rag.ingest
+.venv\Scripts\python tasks.py dev
 ```
 
-On Linux/macOS use `.venv/bin/python` and `npm`. Installing dependencies does not fix the current main-app import regressions. Old speech/model-download instructions are not pivot setup instructions.
+Open http://localhost:5173. Vite proxies `/api` and `/ws` to FastAPI on port 8000. On Linux/macOS, use `.venv/bin/python` and `npm`.
 
-The team will fill these measurements from the integrated build. Old-stack timings and synthetic detector tests are not substitutes.
+The default model is Gemma 3 1B because the development laptop has 7.3 GB RAM. A cold 32-token benchmark took 9.12 seconds with 1B and 109.45 seconds with 4B on this laptop. Override `LLM_MODEL` and `LLM_FALLBACK_MODEL` in `.env` for a larger demo machine. See `BUILD.md` for the full intended scope and `PROGRESS.md` for evidence and incomplete acceptance checks.
 
-| Measurement | Result |
+### Voice and camera dependencies
+
+```powershell
+.venv\Scripts\python -m pip install -r backend/requirements-speech.txt -r backend/requirements-vision.txt
+.venv\Scripts\python -m scripts.download_models
+```
+
+The download utility caches faster-whisper small and Kokoro ONNX/voices in ignored `data/models/`. Runtime loads cached files without downloading. Restart the backend after installing dependencies or weights. Without speech weights, Chat continues working and voice explains the missing component.
+
+Train and export the gesture model using `training/gesture_yolo.ipynb`, then place the export at `backend/vision/weights/gesture.onnx`. The runtime requires all six gesture class names in the export metadata and rejects a generic COCO detector. Model weights and captured frames are not included in Git. Until the export is available, Video mode provides keyboard/button controls with a visible unavailable status.
+
+The training notebook is generated by `python training/build_notebook.py`. Its preparation code validates all six HaGRIDv2 classes, uses subject-separated splits, rejects duplicate images and refuses to overwrite a nonempty dataset output. Put labeled venue images under `training/own_frames/<class>/` with adjacent YOLO `.txt` labels. Add `training/own_frames/subjects.json`, mapping each relative image path to an opaque participant/session ID, for example `{"palm/frame001.jpg": "volunteer-01"}`. Use the same ID for images of the same person. Real preparation and training remain pending; synthetic tests do not count as measured detector accuracy.
+
+Video controls: `Space` talks or interrupts, `Y` shortlists the focused hiring card, `N` moves to the next card, `E` opens its evidence, and `C` switches character. Keyboard shortcuts do not intercept typing or focused buttons/links. The camera sends bounded JPEGs only after the visitor starts it; leaving video stops its stream.
+
+## Data
+
+`scraper/sources.yaml` contains verified official AITM links. Scraping checks robots.txt, uses a custom User-Agent, waits between requests and caches raw responses. Scraping is a refresh step, not required for offline runtime.
+
+```powershell
+.venv\Scripts\python tasks.py scrape
+.venv\Scripts\python tasks.py validate-locality
+.venv\Scripts\python tasks.py ingest
+```
+
+Add consenting students to `data/students_optin.csv` with columns `name,github_username,headline,consent`; only explicit affirmative consent is accepted. Scraping, ingestion, retrieval and student endpoints check consent. Removing consent hides stale indexed records from subsequent retrieval and API requests. Previously viewed information cannot be recalled from a visitor's browser.
+
+Fill `data/locality.json` with verified values and set `placeholder` to false for real entries. Include `last_checked`. No fictional student or locality data is shipped. Test fixtures use example.org and temporary directories.
+
+## Verification
+
+```powershell
+.venv\Scripts\python tasks.py test
+.venv\Scripts\python tasks.py smoke
+npm.cmd run build --prefix frontend
+npm.cmd run lint --prefix frontend
+node --experimental-strip-types --test frontend/tests/gesture-hold.test.mjs
+.venv\Scripts\python -m scripts.speech_smoke
+.venv\Scripts\python -m scripts.smoke --speech
+.venv\Scripts\python -m scripts.smoke --speech --offline
+```
+
+Install the optional speech/vision dependencies before running the complete test suite. LLM and RAG tests require local Ollama and its models. Two scraper integration tests access public websites; set `HC_OFFLINE=1` to skip those. Core smoke uses real local inference and checks health, both characters, AITM citations, refusal, memory extraction and resume. `--speech` also tests the real audio endpoints. These commands do not certify trained gestures, populated hiring matches, phone access or the full demo freeze criteria.
+
+`scripts.speech_smoke` blocks Python networking during real WAV-to-text-to-WAV inference. Use `--require-under-six` to enforce the timing target; this intentionally fails on the current laptop. Two CPU threads measured faster than four. Browser mocks and synthetic gesture tensors test control flow, not model accuracy or physical-device permissions.
+
+The app smoke's `--offline` option blocks non-loopback Python socket connections while allowing the local Ollama server. It is a reproducible local-runtime check; a physical Wi-Fi-off phone demo is still separate. Chroma anonymous telemetry is disabled.
+
+For the complete endpoint acceptance path, use `python -m scripts.smoke --full --gesture-samples <folder>`, where the folder contains real labeled JPEGs under each of the six gesture class names. This requires trained weights, currently opted-in student records, a real hiring match, and the six-second speech target. It cannot pass with the current missing data or laptop timing. It does not replace repeated venue checks or a physical Wi-Fi-off demo.
+
+Chat context is bounded and selects original passages near question terms. In one local comparison, prompt size fell from 6,224 to 3,231 characters and first-token latency from 33.1 to 19.6 seconds. These are single laptop measurements, not guaranteed response times. Citation chips preserve their original context indices after deduplication.
+
+For phone access, install a native cloudflared or ngrok CLI and run `python tasks.py tunnel` on Windows, Linux or macOS. The phone must open the HTTPS tunnel URL and explicitly grant microphone/camera permissions. This physical-device check has not yet been performed.
+
+## Training topics
+
+| Topic | Implementation and current proof |
 |---|---|
-| RAG dataset size and retrieval hit rate | Pending — team to measure |
-| Grounded-answer and refusal evaluation | Pending — team to measure |
-| Chat first-token and end-to-end latency | Pending — team to measure |
-| Live voice roundtrip and interruption | Pending — team to measure |
-| Provider usage, cost and quota behavior | Pending — team to measure |
-| Quiz items surviving checks and human review | Pending — team to measure |
-| Full keyboard games and leaderboard restart check | Pending — team to measure |
-| Gesture mAP50, precision/recall and CPU latency | Pending — team to measure |
-| Two-player gesture attribution and answer accuracy | Pending — team to measure |
-| Phone HTTPS microphone/camera checks | Pending — team to measure |
+| Web scraping | Official AITM snapshot, source links, `scraper/` |
+| GitHub README improvement | Generator and before/after interface; needs real opted-in profiles |
+| RAG | Four Chroma collections, citations, threshold refusal |
+| Ollama | All generation and embeddings run locally |
+| Temperature | Guide 0.8, Analyst 0.2, interview 0.9, extraction 0.0 |
+| Memory | SQLite profiles, bounded history, extracted preferences, resume code |
+| STT/TTS | Local faster-whisper small and Kokoro ONNX; offline roundtrip verified, latency target unmet |
+| YOLO detection/classification | Runtime, camera controls and notebook; real training, ONNX weights and metrics pending |
 
-## Sources and licenses
+## Privacy and licenses
 
-AITM content remains owned by its rights holders; retain source URLs and check dates. Public GitHub content retains its repository licenses. Dependencies, model weights and cloud services have separate terms to review before redistribution or deployment.
+No face recognition, cloud inference or login-walled scraping. Audio and camera frames are processed locally without being written to disk. Microphone and camera start after visitor action and browser permission. Visitor data stays in local SQLite; the resume code grants access to that visitor's profile and should be shared carefully. Raw conversations are limited to the last ten messages, with compact extracted facts retained for continuity.
 
-The proposed gesture dataset is the `cj-mills/hagrid-sample-120k-384p` derivative of HaGRID, with CC-BY-SA-4.0 attribution requirements described in the [game proposal](monitor/PROPOSAL-buzzer-quiz.md). No dataset images, trained weights, training results or license clearance are claimed here. Keyboard Play does not depend on those artifacts.
+AITM source content remains owned by its respective rights holders; snapshots retain source URLs and check dates. Model and dependency terms apply separately: consult [Gemma terms](https://ai.google.dev/gemma/terms), [Ollama](https://github.com/ollama/ollama), [nomic-embed-text](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5), and dependency distributions. No YOLO model or HaGRID images are shipped, so no training metrics or dataset license clearance is claimed yet.
+
+Speech uses [faster-whisper](https://github.com/SYSTRAN/faster-whisper), [Kokoro ONNX](https://github.com/thewh1teagle/kokoro-onnx) and its linked model releases. Review the model and dependency license files for redistribution. This repository contains the downloader and runtime code, not the speech binaries.
+
+Training references: [HaGRID](https://github.com/hukenovs/hagrid) and [Ultralytics YOLO26](https://docs.ultralytics.com/models/yolo26/). The notebook links the dataset's license text; review its specific terms before obtaining or redistributing images. Native COCO weights have incompatible labels and are reported as an unmeasured gesture baseline, not an invented accuracy score. The notebook separately measures one-epoch adaptation and the full fine-tune when real training runs.

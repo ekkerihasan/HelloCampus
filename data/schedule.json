@@ -1,0 +1,4 @@
+[
+  {"id": "event-001", "title": "PLACEHOLDER opening session", "date": "2026-10-19", "start_time": "", "end_time": "", "venue": "", "speaker": "", "description": "Team: replace with a real event and set placeholder to false", "contact": "", "source_url": "curated", "last_checked": "2026-10-19", "placeholder": true},
+  {"id": "event-002", "title": "Hackathon judging", "date": "2026-10-19", "start_time": "16:00", "end_time": "", "venue": "", "speaker": "", "description": "Judging round. Venue not announced yet.", "contact": "", "source_url": "curated", "last_checked": "2026-10-19", "placeholder": false}
+]

@@ -9,3 +9,6 @@ selectolax>=0.3,<2
 trafilatura>=2,<3
 pytest>=8,<10
 pytest-asyncio>=1,<2
+numpy>=1.26,<3
+onnxruntime>=1.18,<2
+pillow>=11,<13
