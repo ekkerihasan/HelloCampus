@@ -14,3 +14,6 @@ data/*.sqlite3
 backend/vision/weights/*.pt
 backend/vision/weights/*.onnx
 frontend/*.tsbuildinfo
+training/own_frames/**/*.jpg
+training/own_frames/**/*.jpeg
+training/own_frames/**/*.png

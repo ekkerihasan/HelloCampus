@@ -1,6 +1,39 @@
 # Hello Campus: Progress Log
 
-## Latest verified checkpoint
+## Latest verified state after parallel work
+Completed features: T0.1, T0.2, T1.2, T1.3, T1.4, T1.5, T2.1, T2.2, T2.4 and T2.5.
+T1.7 is functional but its six-second speech target is unmet. T2.3 runtime/controls are implemented but need real trained weights and venue verification. T0.3/T1.6 real training remain blocked on HaGRID/venue inputs and GPU execution.
+T1.1 real students/locality, T0.4 phone access and phase 3 full-demo/video/freeze acceptance are still pending. No code freeze is declared.
+Final checks:
+- `HC_OFFLINE=1 python -m pytest backend/tests -q`: 94 passed, two public-network scraper tests skipped, 26.99 s.
+- `node --experimental-strip-types --test frontend/tests/gesture-hold.test.mjs`: four passed.
+- `npm run build` and `npm run lint`: passed with 35 modules and no warnings.
+- `python -m scripts.smoke --speech --offline`: PASS in 41.1 s with Python non-loopback connections blocked. Both characters, citations, refusal, fact extraction/resume, real STT/TTS endpoints and explicit unavailable gesture status passed. Speech roundtrip 10.87 s; six-second target remains unmet.
+- Headless Chrome: 11 fixture checks passed, including actual MediaRecorder/AudioContext, early final sentence at sources before memory/done, SSE interruption, track cleanup, missing-model fallback, permission denial and source numbers [2]/[4]. No JavaScript runtime errors. Phone and actual trained-camera inference are not certified.
+Review fixes: final spoken sentence flushes before memory extraction; speech limits come from backend config; camera throttles during hiring generation; one admitted CPU job per STT/TTS component prevents stale work queues after interruption; cancelled workers retain their slot until they finish; Chroma telemetry disabled; startup resources close even after errors.
+Evidence remains scoped to the recorded runs. The complete physical offline demo still requires real student/locality inputs, trained gesture weights, venue repetitions and phone permissions.
+
+## Parallel continuation results
+Status: voice and camera-control implementation integrated; final combined checks in progress.
+- Speech backend: 16 controlled tests passed. Real cached small-int8/Kokoro roundtrip succeeded with Python socket networking blocked: warm 13.153 s at two threads; four threads worsened to 14.614 s. Keep two threads. Six-second T1.7 acceptance remains unmet.
+- Real app smoke including `/api/stt` and `/api/tts`: PASS in 67.0 s. Measured endpoint speech roundtrip 10.92 s, still above target. Gesture absence is reported honestly and does not stop chat or speech.
+- Vision: 11 synthetic backend tests and four frontend hold/cooldown tests passed. CPU ONNX runtime, six-class metadata guard, bounded latest-frame WebSocket queue and camera controls are implemented. Real weights, model latency and venue 4/5 action success are unverified.
+- Frontend: headless Chrome with mocked endpoints and test media exercised actual MediaRecorder, AudioContext, early sentence playback, barge-in/SSE abort, track cleanup, denied permissions, no-model fallback and keyboard character/shortlist controls. This is not a phone or real-trained-model acceptance run.
+- Root reliability checks: citation numbering survives subsets and deduplication; original-passage extraction finds relevant late text; prompt history budgets and cleanup after exceptions are tested.
+- Local chat comparison: 6,224 to 3,231 prompt characters; 33.109 s to 19.570 s first token (single measurements, different context budgets). Retrieval still uses top five; the CPU chat prompt uses up to three confident excerpts with 2,400 content characters.
+- Combined suite before final notebook/admission changes: 59 passed, two external-network scraper tests skipped.
+- Training repair: 27 synthetic tests passed. Embedded notebook prep executes independently with six-class fixture counts train48/val6/test6, subject-separated splits and duplicate-image rejection. Nonempty output folders are preserved. No real dataset, GPU training or accuracy claimed.
+New team input: `training/own_frames/subjects.json` must map frame-relative paths to opaque subject/session IDs for leakage-safe splits. Use the same ID for the same person across captured frames.
+
+## Parallel continuation plan
+User explicitly requested multiple agents for faster completion.
+- Speech agent: repair and verify offline STT/TTS adapters, validation tests, real roundtrip and latency.
+- Voice frontend agent: microphone recording, sentence playback, interruption and cleanup, preserving chat/hiring.
+- Vision agent: ONNX gesture runtime, bounded WebSocket frames, camera overlay, hold/cooldown and keyboard actions. Real training remains blocked on data.
+- Root: integrate routers/startup, review citation correctness, startup cleanup and chat latency; run combined verification and update setup/status evidence.
+No invented student/locality data, gesture accuracy or phone permission evidence will be introduced. Completed verified checkpoints may be committed and pushed without a co-author trailer, following the user's existing authorization.
+
+## Previous committed checkpoint
 Completed: T0.1, T0.2, T1.2, T1.3, T1.4, T1.5, T2.1, T2.4 and T2.5.
 Hiring and README flows passed synthetic endpoint acceptance tests; real demonstration still requires opted-in profiles.
 T1.1 is partial: real campus and achievement snapshots exist; students and real locality data are not available.

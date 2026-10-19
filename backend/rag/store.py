@@ -5,7 +5,8 @@ import time
 from pathlib import Path
 
 import chromadb
-from pydantic import BaseModel
+from chromadb.config import Settings as ChromaSettings
+from pydantic import BaseModel, Field
 
 from backend.config import settings
 from backend.llm.client import OllamaClient
@@ -37,6 +38,7 @@ class Source(BaseModel):
     url: str  # "curated" for hand-entered locality data
     collection: str
     last_checked: str = ""
+    citations: list[int] = Field(default_factory=list)
 
 
 def chunk_words(text: str, tokens: int | None = None, overlap: int | None = None) -> list[str]:
@@ -53,7 +55,8 @@ def chunk_words(text: str, tokens: int | None = None, overlap: int | None = None
 class VectorStore:
     def __init__(self, llm: OllamaClient, path: Path | None = None) -> None:
         self.llm = llm
-        self.client = chromadb.PersistentClient(path=str(path or settings.chroma_dir))
+        self.client = chromadb.PersistentClient(path=str(path or settings.chroma_dir),
+                                               settings=ChromaSettings(anonymized_telemetry=False))
         self.cols = {
             name: self.client.get_or_create_collection(name, embedding_function=None,
                                                       metadata={"hnsw:space": "cosine"})
@@ -63,6 +66,9 @@ class VectorStore:
     @property
     def status_detail(self) -> str:
         return " ".join(f"{n}={c.count()}" for n, c in self.cols.items())
+
+    async def aclose(self) -> None:
+        await self.llm.aclose()
 
     async def ingest(self, collection: str, records: list[Record], whole: bool = False) -> int:
         """Upserts chunks and deletes chunks no longer present, so re-running is idempotent."""
@@ -125,10 +131,13 @@ def confident(hits: list[Hit]) -> list[Hit]:
     return [h for h in hits if h.score >= settings.rag_min_score]
 
 
-def sources_for(hits: list[Hit]) -> list[Source]:
+def sources_for(hits: list[Hit], indices: set[int] | None = None) -> list[Source]:
     seen: dict[str, Source] = {}
-    for h in hits:
+    for index, h in enumerate(hits, 1):
+        if indices is not None and index not in indices:
+            continue
         key = h.source_url if h.source_url != "curated" else f"curated:{h.title}"
         if key not in seen:
             seen[key] = Source(title=h.title, url=h.source_url, collection=h.collection, last_checked=h.last_checked)
+        seen[key].citations.append(index)
     return list(seen.values())

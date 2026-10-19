@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     llm_keep_alive: str = "60m"  # keep models resident between turns
     llm_max_output_tokens: int = 180
     llm_json_output_tokens: int = 700
-    chat_context_chars: int = 6000
+    chat_context_chars: int = 2400
+    chat_context_hits: int = 3
+    chat_history_chars: int = 1800
     chat_max_message_chars: int = 4000
     memory_extract_timeout_s: float = 60.0
 
@@ -58,6 +60,8 @@ class Settings(BaseSettings):
     speech_max_duration_s: float = 45.0
     speech_min_duration_s: float = 0.25
     speech_max_text_chars: int = 600
+    speech_recording_limit_s: float = 30.0
+    speech_sentence_chars: int = 500
     stt_beam_size: int = 1
     tts_speed: float = 1.0
     enable_kannada: bool = False
@@ -72,6 +76,11 @@ class Settings(BaseSettings):
     gesture_fps: int = 10
     gesture_fps_generating: int = 3
     gesture_frame_width: int = 320
+    gesture_max_frame_bytes: int = 150_000
+    gesture_max_pixels: int = 1_000_000
+    gesture_cpu_threads: int = 2
+    gesture_receive_timeout_s: float = 15.0
+    gesture_max_connections: int = 2
     gesture_classes: list[str] = ["palm", "like", "dislike", "ok", "peace", "no_gesture"]
 
     # Scraping

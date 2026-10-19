@@ -18,7 +18,6 @@ from backend.rag.router import route
 from backend.rag.store import Hit, Source, VectorStore, confident, sources_for
 
 log = logging.getLogger("hello_campus.chat")
-_background: set[asyncio.Task] = set()
 
 
 class ChatRequest(BaseModel):
@@ -43,8 +42,8 @@ class ChatEvent(BaseModel):
 def cited_sources(answer: str, hits: list[Hit]) -> list[Source]:
     """Sources the answer actually cites with [n]; all context sources if it cites none."""
     nums = {int(n) for n in re.findall(r"\[(\d+)\]", answer)}
-    used = [h for i, h in enumerate(hits, 1) if i in nums]
-    return sources_for(used or hits)
+    valid = {n for n in nums if 1 <= n <= len(hits)}
+    return sources_for(hits, indices=valid or None)
 
 
 async def run_turn(req: ChatRequest, llm: OllamaClient, store: VectorStore | None,
@@ -65,7 +64,7 @@ async def run_turn(req: ChatRequest, llm: OllamaClient, store: VectorStore | Non
             yield ChatEvent(event="error", data={"message": "Knowledge base is not loaded, so I can't look things up right now."})
             return
         cols = await route(req.message, llm)
-        hits = confident(await store.retrieve(req.message, cols))
+        hits = confident(await store.retrieve(req.message, cols))[:settings.chat_context_hits]
     yield ChatEvent(event="meta", data={"character": char.name.value, "temperature": char.temperature,
                                         "collections": cols, "smalltalk": smalltalk})
 

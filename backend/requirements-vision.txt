@@ -1,0 +1,4 @@
+# Optional local CPU gesture inference. Trained gesture.onnx must be supplied separately.
+numpy>=1.26,<3
+onnxruntime>=1.20,<2
+Pillow>=11,<13

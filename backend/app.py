@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend import components  # noqa: F401, registers startup loaders
 from backend.config import settings
-from backend.routes import chat, visitor, hiring
+from backend.routes import chat, visitor, hiring, speech, gesture
 from backend.status import registry
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -18,16 +18,10 @@ log = logging.getLogger("hello_campus")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await registry.load_all()
-    yield
-    mem = registry.get("memory")
-    if mem:
-        await asyncio.to_thread(mem.close)
-    llm = registry.get("llm")
-    if llm:
-        await llm.aclose()
-    rag = registry.get("rag")
-    if rag:
-        await rag.llm.aclose()
+    try:
+        yield
+    finally:
+        await registry.close_all()
 
 
 app = FastAPI(title="Hello Campus", lifespan=lifespan)
@@ -42,6 +36,8 @@ app.add_middleware(
 app.include_router(chat.router)
 app.include_router(visitor.router)
 app.include_router(hiring.router)
+app.include_router(speech.router)
+app.include_router(gesture.router)
 
 
 @app.get("/api/health")

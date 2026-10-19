@@ -32,6 +32,9 @@ class Registry:
 
     async def load_one(self, name: str) -> None:
         start = time.perf_counter()
+        previous = self.objects.pop(name, None)
+        if previous is not None:
+            await self._close(previous)
         try:
             obj = await self.loaders[name]()
             self.objects[name] = obj
@@ -45,6 +48,25 @@ class Registry:
 
     async def load_all(self) -> None:
         await asyncio.gather(*(self.load_one(n) for n in self.loaders))
+
+    async def _close(self, obj: Any) -> None:
+        try:
+            if hasattr(obj, "aclose"):
+                await obj.aclose()
+            elif hasattr(obj, "close"):
+                await asyncio.to_thread(obj.close)
+        except Exception:
+            log.exception("component cleanup failed")
+
+    async def close_all(self) -> None:
+        """Release resources even if a request failed or another component cannot close."""
+        objects, self.objects = self.objects, {}
+        seen: set[int] = set()
+        for name, obj in objects.items():
+            if id(obj) not in seen:
+                await self._close(obj)
+                seen.add(id(obj))
+            self.statuses[name] = ComponentStatus(name=name, detail="stopped")
 
     def get(self, name: str) -> Any | None:
         return self.objects.get(name) if self.statuses.get(name, ComponentStatus(name=name)).ok else None

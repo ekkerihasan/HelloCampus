@@ -1,0 +1,17 @@
+.gesture-panel { border: 1px solid var(--border, #ddd); border-radius: 16px; padding: 16px; margin: 12px 0; }
+.gesture-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.gesture-status { font-size: .85rem; overflow-wrap: anywhere; }
+.gesture-camera { position: relative; background: #151e23; color: #fff; border-radius: 12px; overflow: hidden; min-height: 100px; }
+.gesture-camera video { display: none; width: 100%; height: auto; vertical-align: middle; }
+.gesture-camera.is-active video { display: block; }
+.gesture-camera > p { padding: 20px; text-align: center; }
+.gesture-box { position: absolute; border: 2px solid #85e7bc; pointer-events: none; }
+.gesture-box span { position: absolute; top: 0; left: 0; background: #153d2e; color: #fff; padding: 2px 5px; font-size: .8rem; white-space: nowrap; }
+.gesture-hold { position: absolute; bottom: 10px; left: 10px; display: flex; align-items: center; gap: 6px; background: #14282fdb; border-radius: 12px; padding: 4px 10px 4px 4px; font-size: .8rem; }
+.gesture-hold svg { width: 40px; height: 40px; transform: rotate(-90deg); }
+.gesture-hold circle { fill: none; stroke-width: 3; }
+.gesture-ring-bg { stroke: #617174; }
+.gesture-ring-fill { stroke: #85e7bc; }
+.gesture-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.gesture-shortcuts button { font-size: .8rem; padding: 6px 10px; }
+.gesture-shortcuts kbd { font: inherit; font-weight: 700; }

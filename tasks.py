@@ -43,7 +43,7 @@ TASKS = {
     "validate-locality": lambda: run([PY, "-m", "backend.rag.locality"]),
     "test": lambda: run([PY, "-m", "pytest", "backend/tests", "-q"]),
     "smoke": lambda: run([PY, "-m", "scripts.smoke"]),
-    "tunnel": lambda: run(["bash", "scripts/tunnel.sh"]),
+    "tunnel": lambda: run([PY, "-m", "scripts.tunnel"]),
 }
 
 if __name__ == "__main__":
