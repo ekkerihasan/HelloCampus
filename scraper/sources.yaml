@@ -1,15 +1,61 @@
 # Real, public URLs only. The team fills these in. Never invent URLs.
 # Each entry: a URL string, or {url: ..., title: ...} to override the page title.
 # Login-walled pages, LinkedIn and Instagram are not allowed.
+# AITM pages below come from https://aitm.edu.in/sitemap.xml (checked 2026-10-19). robots.txt allows them
+# (Crawl-delay 1). The 37 /faculty/* pages are skipped on purpose: they profile individuals who did not opt in.
 campus:
   - {url: 'https://aitm.edu.in/about/', title: 'About AITM Bhatkal'}
   - {url: 'https://aitm.edu.in/contact/', title: 'AITM contact and visiting information'}
+  - https://aitm.edu.in/
+  - https://aitm.edu.in/academics/
+  - https://aitm.edu.in/admissions/
+  - https://aitm.edu.in/admissions/fees/
+  - https://aitm.edu.in/library/
+  - https://aitm.edu.in/facilities/
+  - https://aitm.edu.in/placements/
+  - https://aitm.edu.in/placements/statistics/
+  # Departments
+  - https://aitm.edu.in/departments/basic-science-humanities/
+  - https://aitm.edu.in/departments/civil-engineering/
+  - https://aitm.edu.in/departments/computer-science-engg-ai-ml/
+  - https://aitm.edu.in/departments/computer-science-engg-data-science/
   - {url: 'https://aitm.edu.in/departments/computer-science-engineering/', title: 'AITM Computer Science and Engineering'}
-  # - https://<college-site>/about
-  # - https://<college-site>/departments
-  # - {url: https://<college-site>/events/<event>, title: "Event name"}
+  - https://aitm.edu.in/departments/electrical-electronics-engineering/
+  - https://aitm.edu.in/departments/electronics-communication-engineering/
+  - https://aitm.edu.in/departments/master-of-business-administration/
+  - https://aitm.edu.in/departments/master-of-computer-applications/
+  - https://aitm.edu.in/departments/mechanical-engineering/
+  - https://aitm.edu.in/departments/robotics-artificial-intelligence/
+  # Scholarships
+  - https://aitm.edu.in/admissions/scholarships/anjuman-hami-e-muslimeen-merit-scholarship-2024-25/
+  - https://aitm.edu.in/admissions/scholarships/bihar-anjuman-scholarship-for-engineering-students-2024-25/
+  - https://aitm.edu.in/admissions/scholarships/girls-education-promotion-scholarship-2024-25/
+  - https://aitm.edu.in/admissions/scholarships/inspire-scholarship-for-higher-education-2024-25/
+  - https://aitm.edu.in/admissions/scholarships/karnataka-minority-scholarship-2024-25/
+  - https://aitm.edu.in/admissions/scholarships/obc-non-creamy-layer-scholarship-2024-25/
+  - https://aitm.edu.in/admissions/scholarships/scst-student-welfare-scholarship-2024-25/
+  - https://aitm.edu.in/admissions/scholarships/sports-excellence-scholarship-2024-25/
+  # Recruiters: who hires from campus
+  - https://aitm.edu.in/placements/recruiters/bosch/
+  - https://aitm.edu.in/placements/recruiters/capgemini/
+  - https://aitm.edu.in/placements/recruiters/doshaheen-solutions/
+  - https://aitm.edu.in/placements/recruiters/infosys/
+  - https://aitm.edu.in/placements/recruiters/intel/
+  - https://aitm.edu.in/placements/recruiters/iwave-systems/
+  - https://aitm.edu.in/placements/recruiters/ntt-data/
+  - https://aitm.edu.in/placements/recruiters/pace-wisdom/
+  - https://aitm.edu.in/placements/recruiters/pega/
+  - https://aitm.edu.in/placements/recruiters/q-spider/
+  - https://aitm.edu.in/placements/recruiters/tata-consultancy-services-tcs/
+  - https://aitm.edu.in/placements/recruiters/wipro/
+  # News from https://aitm.edu.in/news/ (checked 2026-10-19). Skipped: the KEA seat notice (stale admissions notice).
+  # Named students in official news: the team confirmed they are public and the students agreed (2026-10-19).
+  - https://aitm.edu.in/news/aitm-celebrates-78th-independence-day/
+  - https://aitm.edu.in/news/human-chain-program/
+  - https://aitm.edu.in/news/mba-background/
+  - https://aitm.edu.in/news/stem-2024/  # an outreach event, so campus (the router sends event questions there)
 achievements:
   - {url: 'https://aitm.edu.in/news/aitm-cricket/', title: 'AITM cricket achievement'}
-  # - https://<college-site>/news/<hackathon-win>
-  # - https://devpost.com/software/<project>
+  - https://aitm.edu.in/news/aitm-placements/
+  - https://aitm.edu.in/news/aitms-ihab-ruknuddin-clinches-first-place-in-national-karate-championship/
 # Students come only from data/students_optin.csv via scraper/scrape_github.py

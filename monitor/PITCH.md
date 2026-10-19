@@ -26,4 +26,12 @@ Pending real build. Candidates: interruptible live voice grounded in campus data
 Pending. Will cover privacy (opt-in only, no face recognition, no transcripts kept beyond 10 turns), hallucinations (refusal threshold, evidence URL post-check), cost and free-tier quotas, scaling to other colleges, why not a general assistant app, next steps.
 
 ## 6. Numbers to quote
-None yet. Only real measured numbers from `logs/usage.jsonl`, `make rag-eval` and PROGRESS.md will go here.
+- Look: photo of a poster to answer with the matching campus page in 3.0 s (cycle 7, one test poster). Fallback voice: speech to text 1.9 s, then first word of the answer 1.6 s.
+- Gesture model (Buzzer Quiz): YOLO26n fine-tuned on a public HaGRID sample, held-out test split of 400 images from 210 people never seen in training: **mAP50 0.988** (1-epoch baseline 0.784), every class 0.973 or higher. Runs on this laptop's CPU in **18.6 ms per frame** (p50). Source: monitor/TRAINING-RESULTS.md. Say "on a held-out test set of new people", not "99 percent accurate at the venue"; venue accuracy is not measured yet.
+Only real, measured numbers. Re-measure before the pitch; these are from cycle 6 (2026-10-19, about 14:30).
+- Knowledge base: 38 records from official aitm.edu.in pages (35 campus, 3 achievements), 56 chunks, every chip links to the page it came from. Source: ingest report.
+- Chat first token: about 1.7 to 2.4 s on single questions (7 runs, cycle 6); p50 2.5 s under a 17-turn burst (cycle 5). Source: monitor probes.
+- Robustness: 17-turn burst including 3 concurrent and Hindi, 0 errors, 0 empty answers (cycle 5 round 3).
+- Grounding spot checks: every recruiter name and the placement figures (83.97%, 393 of 468, highest 46.50 LPA) matched the cited page text exactly.
+- RAG eval (reproduced by the monitor, cycle 6): hit@4 1.0 on 22 questions including 2 Hindi and 1 Kannada, refusals 3/3. English retrieval about 0.6 s, Hindi and Kannada 1.2 to 1.8 s. Caveat: refusal cases are off-topic only until M-014 adds in-domain unknowns; say "22 of 22 on our eval set", not "100 percent accurate".
+**Placement numbers conflict on AITM's own site** (found by the builder): /placements/ says highest 14.5 LPA and 150+ recruiters; /placements/statistics/ says 46.50 LPA and 98 companies. The host cites whichever page it retrieves. Do NOT use placement figures as a pitch line until the team decides which page is right. If asked on stage: "It cites the exact page it read; where the college's pages disagree, the chip shows you which one." 

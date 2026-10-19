@@ -1,6 +1,6 @@
 """Cross-platform task runner. The Makefile delegates here so Windows laptops without make work too.
 
-Usage: python tasks.py <dev|backend|frontend|scrape|ingest|validate-locality|test|smoke|tunnel>
+Usage: python tasks.py <dev|backend|frontend|scrape|ingest|rag-eval|verify-models|validate-locality|test|smoke|tunnel>
 """
 import os
 import subprocess
@@ -40,6 +40,8 @@ TASKS = {
     "frontend": lambda: run([NPM, "run", "dev"], cwd=ROOT / "frontend"),
     "scrape": lambda: run([PY, "-m", "scraper.scrape_web"]) or run([PY, "-m", "scraper.scrape_github"]),
     "ingest": lambda: run([PY, "-m", "backend.rag.ingest"]),
+    "rag-eval": lambda: run([PY, "-m", "scripts.rag_eval"]),
+    "verify-models": lambda: run([PY, "-m", "scripts.verify_models"]),
     "validate-locality": lambda: run([PY, "-m", "backend.rag.locality"]),
     "test": lambda: run([PY, "-m", "pytest", "backend/tests", "-q"]),
     "smoke": lambda: run([PY, "-m", "scripts.smoke"]),

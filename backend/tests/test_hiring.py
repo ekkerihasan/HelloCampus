@@ -31,7 +31,7 @@ class HiringLLM:
 
 
 class HiringRAG:
-    async def retrieve(self, question, collections):
+    async def retrieve(self, question, collections, **kw):
         return [Hit(text="React project", title="Fixture project", source_url=URL,
                     collection="students", score=0.9, entity_id="fixture-student")]
 
@@ -97,3 +97,10 @@ def test_hidden_unknown_url_in_claim_rejected():
     r = Record(id="fixture", collection="students", title="Fixture", text="Synthetic",
                source_url=URL, last_checked="2026-10-19")
     assert service.filter_claims([{"text": "Read https://fake.invalid/award", "url": URL}], [r]) == []
+
+
+def test_role_spec_accepts_model_nulls_and_strings():
+    from backend.memory.store import RoleSpec
+    role = RoleSpec.model_validate({"title": "Frontend intern", "must_have": "React", "nice_to_have": None,
+                                    "level": None, "mode": None})
+    assert role.must_have == ["React"] and role.nice_to_have == [] and role.mode == "" and role.level == ""

@@ -1,0 +1,37 @@
+{
+  "embed_model": "gemini-embedding-2",
+  "ms": 5259,
+  "collections": {
+    "campus": {
+      "chunks": 56,
+      "embedded": 0,
+      "cached": 56,
+      "removed": 0
+    },
+    "achievements": {
+      "chunks": 3,
+      "embedded": 0,
+      "cached": 3,
+      "removed": 0
+    },
+    "students": {
+      "chunks": 0,
+      "embedded": 0,
+      "cached": 0,
+      "removed": 0
+    },
+    "locality": {
+      "chunks": 2,
+      "embedded": 2,
+      "cached": 0,
+      "removed": 0
+    }
+  },
+  "failed": {},
+  "totals": {
+    "chunks": 61,
+    "embedded": 2,
+    "cached": 59,
+    "removed": 0
+  }
+}

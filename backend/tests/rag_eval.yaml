@@ -1,0 +1,72 @@
+# RAG evaluation set (ADDENDUM-01 7.6). Every expected URL was checked against data/clean on 2026-10-19:
+# the page text contains the answer. `expect` lists any source URL that counts as a hit at 4.
+# Run: python tasks.py rag-eval   (one query embedding per question, one translation per non-English question)
+- q: What is the placement rate at AITM?
+  expect: [https://aitm.edu.in/placements/statistics/]
+- q: What was the highest package offered in 2023-24?
+  expect: [https://aitm.edu.in/placements/statistics/]
+- q: How many companies visited campus for placements?
+  expect: [https://aitm.edu.in/placements/statistics/]
+- q: When was the Computer Science and Engineering department established?
+  expect: [https://aitm.edu.in/departments/computer-science-engineering/]
+- q: How many students are in the Mechanical Engineering department?
+  expect: [https://aitm.edu.in/departments/mechanical-engineering/]
+- q: Tell me about the AI and ML department
+  expect: [https://aitm.edu.in/departments/computer-science-engg-ai-ml/]
+- q: Is there a robotics program?
+  expect: [https://aitm.edu.in/departments/robotics-artificial-intelligence/]
+- q: When did the Electronics and Communication department start?
+  expect: [https://aitm.edu.in/departments/electronics-communication-engineering/]
+- q: Does AITM offer an MBA?
+  expect: [https://aitm.edu.in/departments/master-of-business-administration/, https://aitm.edu.in/news/mba-background/]
+- q: What does the MCA program teach?
+  expect: [https://aitm.edu.in/departments/master-of-computer-applications/]
+- q: How many books does the library have?
+  expect: [https://aitm.edu.in/library/]
+- q: How big is the campus?
+  expect: [https://aitm.edu.in/facilities/]
+- q: What is the college phone number and email?
+  expect: [https://aitm.edu.in/contact/]
+- q: Since when has AITM been running?
+  expect: [https://aitm.edu.in/about/, https://aitm.edu.in/departments/civil-engineering/, https://aitm.edu.in/departments/electrical-electronics-engineering/]
+- q: Which cricket championship did AITM win?
+  expect: [https://aitm.edu.in/news/aitm-cricket/]
+- q: Does Intel recruit from AITM?
+  expect: [https://aitm.edu.in/placements/recruiters/intel/]
+- q: What package does Wipro offer AITM students?
+  expect: [https://aitm.edu.in/placements/recruiters/wipro/]
+- q: Who was the chief guest at the Independence Day celebration?
+  expect: [https://aitm.edu.in/news/aitm-celebrates-78th-independence-day/]
+- q: What was the STEM 2024 event for PUC students?
+  expect: [https://aitm.edu.in/news/stem-2024/]
+# Non-English (vector search on the original, BM25 on the fast-model English translation)
+- q: AITM में प्लेसमेंट रेट कितना है?
+  lang: hi
+  expect: [https://aitm.edu.in/placements/statistics/]
+- q: लाइब्रेरी में कितनी किताबें हैं?
+  lang: hi
+  expect: [https://aitm.edu.in/library/]
+- q: ಕಂಪ್ಯೂಟರ್ ಸೈನ್ಸ್ ವಿಭಾಗ ಯಾವಾಗ ಸ್ಥಾಪನೆಯಾಯಿತು?
+  lang: kn
+  expect: [https://aitm.edu.in/departments/computer-science-engineering/]
+# Must be refused: nothing in the campus data answers these
+- q: What is the GDP of the moon base?
+  refuse: true
+- q: What is the capital of Mongolia?
+  refuse: true
+- q: Who won the 2018 FIFA World Cup?
+  refuse: true
+# In-domain unknowns (M-014): retrieval finds related pages, so these run through /api/chat and pass only if the
+# answer admits it does not know. Each fact was confirmed absent from data/clean on 2026-10-19.
+- q: What is the hostel fee per year?
+  unknown: true
+- q: What are the canteen timings?
+  unknown: true
+- q: Does AITM have a swimming pool?
+  unknown: true
+- q: What is the campus Wi-Fi password?
+  unknown: true
+- q: Which bus goes from Murudeshwar to the AITM campus?
+  unknown: true
+- q: What is the dress code for students?
+  unknown: true
