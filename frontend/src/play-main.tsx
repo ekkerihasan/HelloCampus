@@ -1,5 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import './fonts'
+import './index.css'
 import PlayMode from './PlayMode'
 
 const candidate = new URLSearchParams(window.location.search).get('api')

@@ -188,3 +188,38 @@ Plan:
 Evidence so far: gemma3:1b cold request 9.12 s, 32 generated tokens in 2.01 s; full comparison pending.
 Benchmark complete: gemma3:4b cold request 109.45 s, prompt 20.44 s and generation 8.32 s.
 Stack deviation: default changed to gemma3:1b with gemma3:4b fallback for this 7.3 GB CPU laptop, as allowed by BUILD.md section 8.
+
+## UI/UX redesign (branch feat/ui-redesign)
+Status: done (frontend only)
+Plan:
+- One app shell with three sections: Ask (chat and voice), Talent (hiring), Play (quiz, previously only play.html). Left rail on laptop, bottom tab bar on phone.
+- Clean minimal system: neutral surfaces, one accent, hairline borders, 4px spacing grid, fixed type scale, Inter bundled locally so it works offline.
+- No decorative markers: no emoji, sparkle icons, gradients, all-caps eyebrows or badge clutter.
+- Removed the dead Video mode (its component was deleted in 5223ddf but App.tsx still imported it). Voice moved into the composer: mic button, optional spoken replies.
+Evidence:
+$ npm run build   -> built, no type errors
+$ npm run lint    -> no warnings
+$ node --test tests/play-keyboard.test.mjs -> 3 pass
+Headless Chrome against a scratch mock API, phone 390x844 and laptop 1440x900: welcome, resume, ask (answer with citations, refusal, character switch), talent (match, shortlist, interview questions), play (setup, revealed question), visit code sheet. No page errors.
+Fixed during review: newest message hidden under the sticky composer, misaligned segment labels, cramped welcome brand, long purpose list on phone.
+Dependency added: @fontsource-variable/inter (self-hosted font, offline safe).
+Config: vite.config.ts accepts HC_API_TARGET to point the dev proxy at another backend (default unchanged, 127.0.0.1:8000).
+Not covered: the real backend on this branch fails to import (app.py still imports routes.speech and routes.gesture, removed in 5223ddf) and does not mount the quiz API. The UI shows clear fallbacks when those are down.
+
+## UI/UX redesign, pass 2 (professional, single-device quiz)
+Status: done (frontend only, branch feat/ui-redesign, uncommitted)
+Plan:
+- Replace the generic template look (Inter, pills, chat bubbles, big greeting) with an institutional style: IBM Plex Serif headings, Plex Sans text, Plex Mono codes, one deep green, thin rules, square corners.
+- Ask becomes a footnoted Q and A transcript: question as heading, answer as body text, numbered sources with host and checked date, style and temperature noted under each answer.
+- Talent becomes a directory list with consistent actions. Masthead with text tabs (Ask, Talent, Quiz) replaces sidebar and bottom bar.
+- Quiz gets one-screen two-player pads: Player 1 left, question centre, Player 2 right on laptops; stacked on phones with an optional face to face mode that rotates Player 1's pad. Keyboard play unchanged.
+- Resumed visits now say "Welcome back".
+Evidence:
+$ npm run build ; npm run lint -> pass, no warnings
+$ node --test tests/play-keyboard.test.mjs -> 3 pass
+$ node tests/play-browser.mjs (real isolated quiz API on :8011 with a scratch SQLite file, new play.html UI)
+PASS: full versus keyboard game, answer secrecy, pass once, source reveal, typing focus, scores 4/1
+PASS: full co-op keyboard game, disagreement, 500ms agreement, streak 5, score 15, SQLite leaderboard survives page reload
+Headless Chrome screenshots, phone and laptop, every screen including quiz buzz, answer and reveal with touch pads: no page errors.
+Dependencies: removed @fontsource-variable/inter, added @fontsource/ibm-plex-sans, ibm-plex-serif, ibm-plex-mono (self-hosted, offline safe).
+Follow-ups: backend app.py still imports removed speech and gesture routes and does not mount the quiz router (team).
