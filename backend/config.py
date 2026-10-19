@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ROOT / ".env", extra="ignore")
 
     # Keys (backend only)
-    gemini_api_key: str = ""
+    gemini_api_key: Annotated[list[str], NoDecode] = []  # comma separated; a 429 rotates to the next key
     groq_api_keys: Annotated[list[str], NoDecode] = []
     github_token: str = ""
 
@@ -135,6 +135,39 @@ class Settings(BaseSettings):
     speech_max_text_chars: int = 200  # Orpheus rejects longer input (M-005); the browser splits sentences to fit
     speech_recording_limit_s: float = 30.0
 
+    # Gesture model for the Play tab (ADDENDUM-03 section 6, ADDENDUM-04 symbols)
+    gesture_onnx_path: Path = ROOT / "backend" / "vision" / "weights" / "gesture.onnx"
+    gesture_imgsz: int = 416
+    gesture_min_conf: float = 0.5
+    gesture_iou: float = 0.45
+    gesture_hold_ms: int = 500
+    gesture_cooldown_ms: int = 1500
+    gesture_fps: int = 10
+    gesture_fps_generating: int = 3
+    gesture_frame_width: int = 320
+    gesture_max_frame_bytes: int = 150_000
+    gesture_max_pixels: int = 1_000_000
+    gesture_cpu_threads: int = 2
+    gesture_receive_timeout_s: float = 15.0
+    gesture_max_connections: int = 2
+    gesture_classes: list[str] = ["palm", "one", "peace", "three", "four", "no_gesture"]
+
+    # Buzzer Quiz (ADDENDUM-03 and ADDENDUM-04)
+    quiz_enabled: bool = True  # kill switch: false hides the Play tab
+    quiz_bank_path: Path = ROOT / "data" / "clean" / "quiz.jsonl"
+    quiz_scores_path: Path = ROOT / "data" / "quiz_scores.sqlite3"
+    quiz_items_per_record: int = 2
+    quiz_record_chars: int = 3500
+    quiz_min_record_chars: int = 300
+    quiz_min_evidence_chars: int = 25  # a bare "2022" proves nothing; the quote must carry the fact
+    quiz_min_evidence_words: int = 4
+    quiz_questions_per_game: int = 5
+    quiz_solo_answer_s: int = 10
+    quiz_versus_answer_s: int = 8
+    quiz_points_correct: int = 100
+    quiz_time_bonus_per_s: int = 10
+    quiz_leaderboard_size: int = 10
+
     # Scraping
     scrape_user_agent: str = "HelloCampusBot/0.1 (buildathon project; contact via team)"
     scrape_delay_s: float = 1.0
@@ -144,7 +177,7 @@ class Settings(BaseSettings):
     # Server
     cors_origins: list[str] = ["*"]
 
-    @field_validator("groq_api_keys", "text_providers", "supported_languages", mode="before")
+    @field_validator("gemini_api_key", "groq_api_keys", "text_providers", "supported_languages", mode="before")
     @classmethod
     def split_keys(cls, value: object) -> object:
         if isinstance(value, str):

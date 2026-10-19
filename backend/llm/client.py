@@ -362,11 +362,11 @@ def build_text_llm(transport: httpx.AsyncBaseTransport | None = None) -> TextLLM
     groq = OpenAICompatClient("groq", settings.groq_base_url, settings.groq_api_keys, settings.groq_chat_model,
                               settings.groq_fast_model, settings.groq_stt_model, settings.groq_tts_model,
                               settings.groq_tts_voice, transport=transport)
-    gemini = OpenAICompatClient("gemini", settings.gemini_openai_base_url, [settings.gemini_api_key],
+    gemini = OpenAICompatClient("gemini", settings.gemini_openai_base_url, settings.gemini_api_key,
                                 settings.gemini_chat_model, settings.gemini_fast_model,
                                 reasoning_effort=settings.gemini_reasoning_effort, transport=transport)
     # Free-tier quota is per model, so a second Gemini model absorbs 429s on the first (M-011).
-    backup = OpenAICompatClient("gemini-backup", settings.gemini_openai_base_url, [settings.gemini_api_key],
+    backup = OpenAICompatClient("gemini-backup", settings.gemini_openai_base_url, settings.gemini_api_key,
                                 settings.gemini_backup_model, settings.gemini_backup_model, transport=transport)
     order = {"groq": groq, "gemini": gemini, "gemini-backup": backup}
     backends = [order[name] for name in settings.text_providers if name in order]

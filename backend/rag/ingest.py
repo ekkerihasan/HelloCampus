@@ -37,6 +37,7 @@ def student_records(clean_dir: Path, optin_path: Path | None = None) -> list[Rec
 # Team decisions on conflicting official pages (2026-10-19): /placements/statistics/ is authoritative for placement
 # numbers, so the older summary figures on /placements/ are dropped before indexing. data/clean stays as scraped.
 CORRECTIONS: dict[str, list[tuple[str, str]]] = {
+    "https://aitm.edu.in/": [(r"\s*with our 95% placement record", "")],
     "https://aitm.edu.in/placements/": [(r"Highest Package\s*₹?14\.5 LPA\s*", ""), (r"\|\s*90% Rate\s*-?\s*", "| ")],
 }
 

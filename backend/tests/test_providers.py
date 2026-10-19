@@ -318,3 +318,18 @@ async def test_embedding_429_waits_and_retries_instead_of_failing():
     g = GeminiClient("k", transport=httpx.MockTransport(lambda req: next(replies)))
     assert await g.embed_query("library hours") == [0.5]
     await g.aclose()
+
+
+async def test_two_gemini_keys_rotate_on_429():
+    seen = []
+
+    def handler(req):
+        seen.append(req.headers["x-goog-api-key"])
+        if len(seen) == 1:
+            return httpx.Response(429, headers={"retry-after": "0"})
+        return httpx.Response(200, json={"embeddings": [{"values": [1.0]}]})
+
+    g = GeminiClient(["key-one", "key-two"], transport=httpx.MockTransport(handler))
+    assert await g.embed_query("q") == [1.0]
+    assert seen == ["key-one", "key-two"]
+    await g.aclose()

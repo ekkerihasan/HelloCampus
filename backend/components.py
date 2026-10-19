@@ -8,6 +8,7 @@ from backend.memory.store import MemoryStore
 from backend.rag.store import VectorStore
 from backend.schedule.store import ScheduleStore
 from backend.status import registry
+from backend.vision.gesture import GestureDetector
 
 
 async def _load_text() -> TextLLM:
@@ -37,3 +38,4 @@ registry.register("gemini", _load_gemini)
 registry.register("rag", _load_rag)
 registry.register("memory", _load_memory)
 registry.register("schedule", _load_schedule)
+registry.register("gesture", lambda: asyncio.to_thread(GestureDetector))  # missing model is reported, not fatal

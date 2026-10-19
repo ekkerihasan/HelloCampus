@@ -9,6 +9,7 @@ data/raw/*
 !data/raw/.gitkeep
 data/models/
 data/memory.sqlite3
+data/quiz_scores.sqlite3
 data/*.sqlite3-journal
 logs/
 *.log

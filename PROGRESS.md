@@ -12,6 +12,16 @@ Plan (addendum section 10 order, keyless work first):
 Blocked on the team: GEMINI_API_KEY and GROQ_API_KEYS in .env. Without them, provider calls are tested with transport doubles only and no acceptance criterion that needs a real call is marked done.
 Environment: Python 3.12.6 is the only interpreter on this laptop now (the 3.10 note below is outdated). Fresh .venv created from backend/requirements.txt.
 
+## T4.1 to T4.4 Get to Know AITM (Solo), ADDENDUM-04 (2026-10-19)
+Status: T4.1 done, T4.2 done (by the monitor, user-approved split, files backend/vision/*, routes/gesture.py, gesture/hold.ts), T4.3 built, T4.4 built (needs a human at the camera for the 4 of 5 acceptance)
+- T4.1 `python tasks.py quiz`: 26 campus and achievement pages (recruiter pages skipped) -> 41 items, then the stricter post-check (verbatim evidence of at least 4 words and 25 characters, correct option inside the evidence, only one option inside it, URL in stored data) and the team corrections (statistics page authoritative, the home page "95% placement record" dropped) -> 25 items in data/clean/quiz.jsonl. The bank is re-validated on every load.
+- Routes /api/quiz/config, /api/quiz/game, /api/quiz/score, /api/quiz/leaderboard; scores in data/quiz_scores.sqlite3 (gitignored); QUIZ_ENABLED kill switch.
+- frontend/src/components/PlayMode.tsx: "Get to Know AITM" (user naming decision): name, 10 s countdown, options A to D with finger-count signs (1 to 4) and palm for start or next, keyboard 1 to 4 and Space, +100 plus 10 per remaining second, streak, reveal with the evidence quote, source chip and a spoken line, final score and today's leaderboard. Camera optional: frames over /ws/gesture, hold ring on the option being signed, hand boxes, hands only, nothing stored.
+- Bugs fixed on the way: GEMINI_API_KEY with two comma-separated keys was sent as one key ("Invalid Auth key"), now a list that rotates on 429; quiz score DB deadlock (non-reentrant lock), now RLock.
+Evidence: pytest backend/tests -> 120 passed, 2 skipped (quiz post-check, short evidence, persistence across restart); tsc and eslint clean; /api/quiz/config enabled with 25 questions; /api/gesture/config available (YOLO26n ONNX CPU).
+Dependencies added: pillow 12.3.0 (monitor), numpy and onnxruntime now listed in backend/requirements.txt.
+Not yet verified: gesture accuracy at the venue (T4.4 acceptance), T4.5 isolation run with the model file removed.
+
 ## T2.4 hiring with real opted-in students (2026-10-19)
 Status: done
 - data/students_optin.csv: 11 GitHub logins (exact casing) from the user. Written with consent=pending first, flipped to yes after the user confirmed in this session that all 11 agreed.

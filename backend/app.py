@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 from backend import components  # noqa: F401, registers startup loaders
 from backend.config import settings
 from backend.providers import usage
-from backend.routes import chat, hiring, live, speech, tools, visit, visitor
+from backend.routes import chat, gesture, hiring, live, quiz, speech, tools, visit, visitor
 from backend.status import registry
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Hello Campus", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["*"], allow_headers=["*"])
 
-for module in (chat, visitor, hiring, speech, tools, live, visit):
+for module in (chat, visitor, hiring, speech, tools, live, visit, quiz, gesture):
     app.include_router(module.router)
 
 

@@ -6,6 +6,7 @@ import { useVoice } from './hooks/useVoice'
 import { useLive } from './hooks/useLive'
 import { useDictation } from './hooks/useDictation'
 import { RichText } from './components/RichText'
+import { PlayMode } from './components/PlayMode'
 import './App.css'
 
 type Message = { id: string; role: 'user' | 'assistant'; text: string; sources: Source[]; character: Character; refused?: boolean }
@@ -26,7 +27,7 @@ function App() {
   const [busy, setBusy] = useState(false), [welcomeBusy, setWelcomeBusy] = useState(false)
   const [error, setError] = useState(''), [status, setStatus] = useState('')
   const [health, setHealth] = useState<Health | null>(null), [hiring, setHiring] = useState(false)
-  const [mode, setMode] = useState<Mode>('chat')
+  const [mode, setMode] = useState<Mode>('chat'), [play, setPlay] = useState(false)
   const [, setHiringBusy] = useState(false)
   const candidateActions = useRef<CandidateActions>({}), camera = useRef<HTMLVideoElement | null>(null)
   const [cameraOn, setCameraOn] = useState(false)
@@ -117,15 +118,15 @@ function App() {
     <aside className="sidebar">
       <a className="brand" href="/" aria-label="Hello Campus home"><span className="brand-icon">h<span>c</span></span><span>Hello<br /><strong>Campus.</strong></span></a>
       <div className="campus-label">YOUR CAMPUS COMPANION</div><div className="campus-name">Anjuman Institute of<br />Technology & Management<span>Bhatkal, Karnataka</span></div>
-      <nav aria-label="Explore"><button className={!hiring ? 'nav-item active' : 'nav-item'} onClick={() => { stopResponse(); voice.stop(); live.stop(); setHiring(false) }}><span>◌</span> Conversation <span className="nav-arrow">↗</span></button><button className={hiring ? 'nav-item active' : 'nav-item'} disabled={!visitor || busy} onClick={() => { voice.stop(); setHiring(true); void toggleCharacter('analyst') }}><span>▤</span> Find talent <span className="nav-arrow">↗</span></button></nav>
+      <nav aria-label="Explore"><button className={!hiring ? 'nav-item active' : 'nav-item'} onClick={() => { stopResponse(); voice.stop(); live.stop(); setHiring(false); setPlay(false) }}><span>◌</span> Conversation <span className="nav-arrow">↗</span></button><button className={hiring ? 'nav-item active' : 'nav-item'} disabled={!visitor || busy} onClick={() => { voice.stop(); live.stop(); setPlay(false); setHiring(true); void toggleCharacter('analyst') }}><span>▤</span> Find talent <span className="nav-arrow">↗</span></button><button className={play ? 'nav-item active' : 'nav-item'} disabled={!visitor || busy} onClick={() => { stopResponse(); voice.stop(); live.stop(); setHiring(false); setPlay(true) }}><span>▶</span> Get to Know AITM <span className="nav-arrow">↗</span></button></nav>
       <div className="sidebar-note"><span className="dot" />A little local knowledge.<br /><strong>A warmer welcome.</strong><p>Ask about the campus, explore what’s happening, or find your next teammate.</p></div><a className="college-link" href="https://aitm.edu.in/" target="_blank" rel="noreferrer">Visit AITM website ↗</a>
     </aside>
-    <main><header className="topbar"><span>WELCOME TO AITM <span className="topbar-divider">/</span> <strong>{hiring ? 'Find talent' : 'Your visit, made easier'}</strong></span><span className={`connection ${ready ? 'online' : ''}`}><i />{ready ? 'Companion ready' : 'Companion connecting'}</span></header>
+    <main><header className="topbar"><span>WELCOME TO AITM <span className="topbar-divider">/</span> <strong>{play ? 'Get to Know AITM' : hiring ? 'Find talent' : 'Your visit, made easier'}</strong></span><span className={`connection ${ready ? 'online' : ''}`}><i />{ready ? 'Companion ready' : 'Companion connecting'}</span></header>
       {error && <div className="error-banner" role="alert">{error}<button aria-label="Dismiss error" onClick={() => setError('')}>×</button></div>}
       {restoring ? <div className="welcome"><p>Finding your visit…</p></div> : !visitor ? <section className="welcome"><div className="eyebrow">A FAMILIAR FACE IN A NEW PLACE</div><h1>New here?<br /><span>You’re in good company.</span></h1><p className="intro">A friendly guide to AITM, its people and the things that make it special. Let’s start with you.</p><div className="welcome-grid">
         <form className="welcome-card" onSubmit={e => void welcome(e)}><label htmlFor="visitor-name">What should I call you?</label><input id="visitor-name" autoComplete="given-name" placeholder="Your name" value={name} maxLength={60} required onChange={e => setName(e.target.value)} /><fieldset><legend>What brings you here today?</legend><div className="purpose-chips">{purposes.map(p => <button type="button" key={p} className={purpose === p ? 'chip selected' : 'chip'} onClick={() => setPurpose(p)}>{p}</button>)}</div></fieldset><button className="primary" disabled={welcomeBusy || !name.trim()}>{welcomeBusy ? 'Getting things ready…' : 'Let’s get acquainted'} <span>↗</span></button><small>Your visit is remembered on this laptop. A short code lets you continue on another device.</small></form>
         <form className="resume-card" onSubmit={e => void welcome(e, true)}><span className="resume-icon">↶</span><h2>Back for more?</h2><p>Pick up where you left off with your four-character visit code.</p><label htmlFor="resume-code">Visit code</label><input id="resume-code" className="code-input" placeholder="K7QM" value={code} maxLength={4} required onChange={e => setCode(e.target.value.toUpperCase())} /><button className="secondary" disabled={welcomeBusy || code.trim().length !== 4}>Resume my visit →</button></form>
-      </div></section> : hiring ? <Hiring visitor={visitor} onError={setError} onBusyChange={setHiringBusy} candidateActions={candidateActions} mediaPanel={<><div className="hiring-media-toolbar">{modeTabs}</div>{mediaPanel}</>} /> : <section className="conversation">
+      </div></section> : play ? <PlayMode playerName={visitor.name} onError={setError} /> : hiring ? <Hiring visitor={visitor} onError={setError} onBusyChange={setHiringBusy} candidateActions={candidateActions} mediaPanel={<><div className="hiring-media-toolbar">{modeTabs}</div>{mediaPanel}</>} /> : <section className="conversation">
         <div className="conversation-heading"><div><div className="eyebrow">MAKE YOURSELF AT HOME</div><h1>Hello, {visitor.name}<span className="hello-spark">✳</span></h1><p>A campus question, a little curiosity. Where shall we start?</p></div><div className="visit-code"><span>YOUR VISIT CODE</span><strong>{visitor.code}</strong><small>Continue on any device</small></div></div>
         <div className="conversation-toolbar">{modeTabs}<div className="character-toggle" aria-label="Character">{(['guide', 'analyst'] as Character[]).map(c => <button key={c} disabled={busy} aria-pressed={character === c} className={character === c ? 'selected' : ''} onClick={() => void toggleCharacter(c)}>{c === 'guide' ? 'Guide · 0.8' : 'Analyst · 0.2'}</button>)}</div></div>
         {mediaPanel}

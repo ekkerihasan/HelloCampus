@@ -34,9 +34,9 @@ def _iso(dt: datetime) -> str:
 
 
 class GeminiClient:
-    def __init__(self, key: str | None = None, transport: httpx.AsyncBaseTransport | None = None) -> None:
-        key = settings.gemini_api_key if key is None else key
-        self.ring = KeyRing(PROVIDER, [key] if key else [])
+    def __init__(self, key: str | list[str] | None = None, transport: httpx.AsyncBaseTransport | None = None) -> None:
+        keys = settings.gemini_api_key if key is None else ([key] if isinstance(key, str) else key)
+        self.ring = KeyRing(PROVIDER, [k for k in keys if k])
         self.embed_model = settings.gemini_embed_model
         self.vision_model = settings.gemini_vision_model
         self._http = httpx.AsyncClient(base_url=settings.gemini_base_url, timeout=timeout(), transport=transport)

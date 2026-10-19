@@ -41,6 +41,7 @@ TASKS = {
     "scrape": lambda: run([PY, "-m", "scraper.scrape_web"]) or run([PY, "-m", "scraper.scrape_github"]),
     "ingest": lambda: run([PY, "-m", "backend.rag.ingest"]),
     "rag-eval": lambda: run([PY, "-m", "scripts.rag_eval"]),
+    "quiz": lambda: run([PY, "-m", "backend.quiz.bank"]),
     "verify-models": lambda: run([PY, "-m", "scripts.verify_models"]),
     "validate-locality": lambda: run([PY, "-m", "backend.rag.locality"]),
     "validate-posts": lambda: run([PY, "-m", "backend.rag.posts"]),

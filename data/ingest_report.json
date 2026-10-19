@@ -1,6 +1,6 @@
 {
   "embed_model": "gemini-embedding-2",
-  "ms": 8846,
+  "ms": 5703,
   "collections": {
     "campus": {
       "chunks": 56,
@@ -15,9 +15,9 @@
       "removed": 0
     },
     "students": {
-      "chunks": 70,
-      "embedded": 70,
-      "cached": 0,
+      "chunks": 77,
+      "embedded": 7,
+      "cached": 70,
       "removed": 0
     },
     "locality": {
@@ -29,9 +29,9 @@
   },
   "failed": {},
   "totals": {
-    "chunks": 131,
-    "embedded": 70,
-    "cached": 61,
+    "chunks": 138,
+    "embedded": 7,
+    "cached": 131,
     "removed": 0
   }
 }
