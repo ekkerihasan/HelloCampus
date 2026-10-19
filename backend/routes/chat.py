@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from backend.llm.chat import ChatEvent, ChatRequest, run_turn
-from backend.routes.deps import optional, require
+from backend.routes.deps import components, require
 
 log = logging.getLogger("hello_campus.routes.chat")
 router = APIRouter()
@@ -21,18 +21,20 @@ def sse(ev: ChatEvent) -> str:
 
 
 @router.post("/api/chat")
-async def chat(req: ChatRequest, llm=Depends(require("llm")), store=Depends(optional("rag")),
-               mem=Depends(optional("memory"))) -> StreamingResponse:
+async def chat(req: ChatRequest, llm=Depends(require("llm")), parts=Depends(components)) -> StreamingResponse:
+    mem = parts.get("memory")
+
     async def gen() -> AsyncIterator[str]:
         try:
             key = f"{id(mem)}:{req.visitor_id}" if req.visitor_id else f"anonymous:{id(req)}"
             lock = _visitor_locks.setdefault(key, asyncio.Lock())
             async with lock:
-                async for ev in run_turn(req, llm, store, mem):
+                async for ev in run_turn(req, llm, parts):
                     yield sse(ev)
         except Exception as exc:  # noqa: BLE001, surface to UI instead of a dropped stream
             log.exception("chat turn failed")
-            yield sse(ChatEvent(event="error", data={"message": f"Something went wrong: {exc}"}))
+            yield sse(ChatEvent(event="error", data={"message": getattr(exc, "user_message", None)
+                                                     or "Something went wrong. Please try again."}))
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

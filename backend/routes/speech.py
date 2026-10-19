@@ -1,81 +1,19 @@
-"""Raw audio in, text out; one sentence in, WAV out. CPU calls run in workers."""
-import asyncio
+"""Fallback voice pipeline (ADDENDUM-01 section 5.5): raw audio in, text out via Groq Whisper; one sentence in,
+WAV out via Groq TTS. When TTS is unavailable the response says so and the browser uses speechSynthesis."""
 import logging
-import threading
-from concurrent.futures import Future, ThreadPoolExecutor
-from typing import Callable, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 
 from backend.config import settings
+from backend.providers.retry import ProviderError
 from backend.routes.deps import require
 
 router = APIRouter()
 log = logging.getLogger("hello_campus.speech")
-T = TypeVar("T")
-
-
-class SpeechWorker:
-    """One admitted job per model, with no queue of stale recordings/sentences.
-
-    The concurrent future owns the slot. Cancelling an ASGI coroutine cannot
-    release a slot while its underlying CPU thread is still running.
-    """
-
-    def __init__(self, name: str):
-        self.name = name
-        self._slot = threading.Lock()
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"speech-{name}")
-
-    def submit(self, function: Callable[[], T]) -> Future[T]:
-        if not self._slot.acquire(blocking=False):
-            raise HTTPException(503, f"Local {self.name} is busy finishing a previous request. Please try again shortly.")
-        try:
-            future = self._executor.submit(function)
-        except BaseException:
-            self._slot.release()
-            raise
-        future.add_done_callback(lambda _: self._slot.release())
-        return future
-
-
-_workers = {name: SpeechWorker(name) for name in ("stt", "tts")}
-
-
-async def _wait_for_disconnect(request: Request) -> None:
-    # Both endpoints consume their entire request bodies before starting work.
-    # Awaiting the remaining ASGI receive detects disconnects without polling.
-    while True:
-        if (await request.receive())["type"] == "http.disconnect":
-            return
-
-
-async def _infer(request: Request, name: str, function: Callable[[], T]) -> T:
-    if await request.is_disconnected():
-        raise HTTPException(503, "Speech request was disconnected before inference started.")
-    future = _workers[name].submit(function)
-    wrapped = asyncio.wrap_future(future)
-    disconnected = asyncio.create_task(_wait_for_disconnect(request))
-    try:
-        done, _ = await asyncio.wait({wrapped, disconnected}, return_when=asyncio.FIRST_COMPLETED)
-        if disconnected in done:
-            # Cancellation succeeds for a not-yet-started job. A running job
-            # keeps the slot until the concurrent future actually completes.
-            raise HTTPException(503, "Speech request was disconnected. Please try again when ready.")
-        return await wrapped
-    finally:
-        # Cancel the concurrent future directly, before an event-loop callback
-        # could allow an executor-queued job to begin after cancellation.
-        if not future.done():
-            future.cancel()
-        if not wrapped.done():
-            wrapped.cancel()
-        elif not wrapped.cancelled():
-            wrapped.exception()  # consume errors when completion races a disconnect
-        disconnected.cancel()
-        await asyncio.gather(disconnected, return_exceptions=True)
+EXTENSIONS = {"audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/mpeg": "mp3",
+              "audio/wav": "wav", "audio/x-wav": "wav"}
 
 
 class SpeechText(BaseModel):
@@ -89,27 +27,27 @@ class SpeechText(BaseModel):
         return value.strip()
 
 
-class Transcript(BaseModel):
+class TranscriptOut(BaseModel):
     text: str
     language: str
-    ms: int
 
 
 class SpeechConfig(BaseModel):
-    recording_max_ms: int
+    live_enabled: bool
+    server_tts: bool
     sentence_max_chars: int
+    recording_max_ms: int
 
 
 @router.get("/api/speech/config", response_model=SpeechConfig)
 def speech_config() -> SpeechConfig:
-    return SpeechConfig(
-        recording_max_ms=int(min(settings.speech_recording_limit_s, settings.speech_max_duration_s) * 1000),
-        sentence_max_chars=min(settings.speech_sentence_chars, settings.speech_max_text_chars),
-    )
+    return SpeechConfig(live_enabled=settings.live_enabled, server_tts=settings.server_tts_enabled,
+                        sentence_max_chars=settings.speech_max_text_chars,
+                        recording_max_ms=int(settings.speech_recording_limit_s * 1000))
 
 
-@router.post("/api/stt", response_model=Transcript)
-async def transcribe(request: Request, stt=Depends(require("stt"))):
+@router.post("/api/stt", response_model=TranscriptOut)
+async def transcribe(request: Request, llm=Depends(require("llm"))) -> TranscriptOut:
     content = bytearray()
     async for chunk in request.stream():
         content.extend(chunk)
@@ -117,24 +55,24 @@ async def transcribe(request: Request, stt=Depends(require("stt"))):
             raise HTTPException(413, "This recording is too large. Please record a shorter question.")
     if not content:
         raise HTTPException(422, "The recording is empty")
+    mime = (request.headers.get("content-type") or "audio/webm").split(";")[0].strip()
     try:
-        return await _infer(request, "stt", lambda: stt.transcribe(bytes(content)))
-    except HTTPException:
-        raise
-    except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    except Exception as exc:
-        log.exception("Local speech recognition failed")
-        raise HTTPException(503, "Speech recognition failed. Please try again or type your question.") from exc
+        t = await llm.transcribe(bytes(content), f"speech.{EXTENSIONS.get(mime, 'webm')}", mime)
+    except ProviderError as exc:
+        log.warning("stt failed: %s", exc)
+        raise HTTPException(503, f"{exc.user_message} You can type your question instead.") from exc
+    if not t.text:
+        raise HTTPException(422, "I couldn't hear anything. Please try again a little closer to the mic.")
+    return TranscriptOut(text=t.text, language=t.language)
 
 
 @router.post("/api/tts")
-async def synthesize(body: SpeechText, request: Request, tts=Depends(require("tts"))):
+async def synthesize(body: SpeechText, llm=Depends(require("llm"))) -> Response:
+    if not settings.server_tts_enabled:
+        raise HTTPException(503, "Server voice is off, using the browser voice.")
     try:
-        audio = await _infer(request, "tts", lambda: tts.synthesize(body.text))
-    except HTTPException:
-        raise
-    except Exception as exc:
-        log.exception("Local speech synthesis failed")
-        raise HTTPException(503, "Speech playback failed. You can still read the answer.") from exc
+        audio = await llm.speak(body.text)
+    except ProviderError as exc:
+        log.warning("tts failed: %s", exc)
+        raise HTTPException(503, "Server voice is unavailable, using the browser voice.") from exc
     return Response(audio, media_type="audio/wav", headers={"Cache-Control": "no-store"})

@@ -45,7 +45,7 @@ class PoliteFetcher:
         self.delay_s = settings.scrape_delay_s if delay_s is None else delay_s
         self.client = httpx.Client(
             headers={"User-Agent": settings.scrape_user_agent, **(headers or {})},
-            timeout=20,
+            timeout=settings.scrape_timeout_s,
             follow_redirects=True,
         )
         self._robots: dict[str, urllib.robotparser.RobotFileParser] = {}
@@ -83,11 +83,18 @@ class PoliteFetcher:
             return None
         if use_cache and cache.exists():
             return cache.read_text(encoding="utf-8")
-        self._wait()
-        try:
-            r = self.client.get(url)
-        except httpx.HTTPError as exc:
-            log.warning("fetch failed %s: %s", url, exc)
+        r = None
+        for attempt in range(1 + settings.scrape_timeout_retries):
+            self._wait()
+            try:
+                r = self.client.get(url)
+                break
+            except httpx.TimeoutException as exc:  # slow college servers: one patient retry
+                log.warning("fetch timed out %s (attempt %d): %s", url, attempt + 1, exc)
+            except httpx.HTTPError as exc:
+                log.warning("fetch failed %s: %s", url, exc)
+                return None
+        if r is None:
             return None
         if r.status_code != 200:
             log.warning("HTTP %s for %s", r.status_code, url)

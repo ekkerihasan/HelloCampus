@@ -6,6 +6,28 @@ Campus reference point: OpenStreetMap node 1709841585 "Anjuman Engineering Colle
 
 Source for OSM rows: OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright). Link format: `https://www.openstreetmap.org/node/<id>`.
 
+## USER-APPROVED (2026-10-19, about 15:10): use these, keep other spots as placeholders
+The user chose these two lunch places and gave the links. Facts below were read once from each page (facts only, no review text). Fields marked "not shown" must stay empty, never guessed.
+
+| Field | Layali Arabia Restaurant | Al Khaleej Arabian Restaurant |
+|---|---|---|
+| source_url | https://www.justdial.com/Uttara-Kannada/Layali-Arabia-Restaurant-Next-Taqwa-Credit-Cooperative-Society-Bhatkal/9999P8382-8382-251203125822-F8V7_BZDET | https://www.tripadvisor.in/Restaurant_Review-g2287549-d14763069-Reviews-Al_Khaleej_Arabian_Restaurant-Bhatkal_Uttara_Kannada_District_Karnataka.html |
+| Address | NH 66, Kargedde, Rangikatte, next to Taqwa Credit Cooperative Society, Bhatkal, Uttara Kannada 581320 | Misbah Chambers, Bhatkal 581354 |
+| Cuisine | Arabic | Middle Eastern, Arabic |
+| Hours | "Open until 11:00 pm" (as shown on 2026-10-19) | not shown |
+| Price range | not shown | not shown |
+| Veg options | not shown | not shown |
+| Rating shown | 121 ratings (value not captured) | 3.4 of 5, 5 reviews |
+| Distance from campus | not shown (team: fill by road) | not shown (team: fill by road) |
+
+Notes for the builder:
+- `type: food`, `placeholder: false`, `last_checked: 2026-10-19`, `source_url` as above. `veg_options`: unknown, so the schema needs null or "unknown", not false. The host must say veg options are not confirmed rather than claim either way.
+- Demo step 2 asks for "something veg": with these two, the honest answer is "here are two places near campus; I don't have confirmed veg options". The team can add a veg place or a veg dish later.
+- Keep the other food placeholders (still `placeholder: true`, never indexed) for the team to fill.
+
+## Schedule (user, 2026-10-19)
+- Judging today, 2026-10-19, at 16:00 (4:00 PM). Venue: not given (team: fill). Source: the team (curated). The builder adds it to the schedule store so get_schedule can answer "when is judging?".
+
 ## Food (OpenStreetMap, within 8 km)
 OSM coverage of Bhatkal is thin: only 4 tagged food places were found. Add the places the team actually eats at.
 

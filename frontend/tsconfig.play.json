@@ -1,1 +1,0 @@
-{"extends":"./tsconfig.app.json","compilerOptions":{"tsBuildInfoFile":"./node_modules/.tmp/tsconfig.play.tsbuildinfo"},"include":["src/PlayMode.tsx","src/play/**/*","src/play-main.tsx","src/vite-env.d.ts"]}

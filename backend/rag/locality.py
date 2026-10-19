@@ -20,9 +20,18 @@ class _Base(BaseModel):
     id: str = Field(pattern=r"^(food|travel|place|practical)-\d{3}$")
     name: str = Field(min_length=1)
     distance_from_campus: str = ""
+    address: str = ""
     notes: str = ""
     last_checked: date
     placeholder: bool = False
+    source_url: str = "curated"  # a public link (e.g. OpenStreetMap) the host can cite, or "curated"
+
+    @field_validator("source_url")
+    @classmethod
+    def real_link(cls, v: str) -> str:
+        if v != "curated" and not v.startswith("https://"):
+            raise ValueError('source_url must be an https:// link or "curated"')
+        return v
 
     @field_validator("last_checked")
     @classmethod
@@ -34,9 +43,10 @@ class _Base(BaseModel):
 
 class Food(_Base):
     type: Literal["food"]
+    cuisine: str = ""
     what_to_order: str = ""
     price_range: str = ""
-    veg_options: bool = False
+    veg_options: bool | None = None  # None means not confirmed: never stored or spoken as "no veg"
     timings: str = ""
 
 
@@ -70,8 +80,10 @@ def load(path: Path | None = None) -> list[LocalityEntry]:
 
 def entry_text(e: LocalityEntry) -> str:
     """One chunk per entry (BUILD.md 4.3)."""
-    skip = {"id", "placeholder", "last_checked"}
+    skip = {"id", "placeholder", "last_checked", "source_url"}
     parts = [f"{k.replace('_', ' ')}: {v}" for k, v in e.model_dump().items() if k not in skip and v not in ("", None)]
+    if getattr(e, "type", "") == "food" and getattr(e, "veg_options", None) is None:
+        parts.append("veg options: not confirmed")
     return f"{e.name} ({e.type}). " + ". ".join(parts) + f". Last checked {e.last_checked.isoformat()}."
 
 

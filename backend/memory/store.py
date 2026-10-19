@@ -8,7 +8,7 @@ import time
 import uuid
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from backend.config import settings
 from backend.llm.client import ChatMessage
@@ -21,7 +21,8 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS visitors (
   id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, purpose TEXT NOT NULL DEFAULT '',
   facts TEXT NOT NULL DEFAULT '{}', role TEXT NOT NULL DEFAULT '{}', summary TEXT NOT NULL DEFAULT '',
-  character TEXT NOT NULL DEFAULT 'guide', created_at REAL NOT NULL, updated_at REAL NOT NULL
+  character TEXT NOT NULL DEFAULT 'guide', language TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL,
+  updated_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS turns (
   id INTEGER PRIMARY KEY AUTOINCREMENT, visitor_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL,
@@ -41,6 +42,20 @@ class RoleSpec(BaseModel):
     level: str = ""
     mode: str = ""  # remote | onsite | hybrid
 
+    @field_validator("title", "level", "mode", mode="before")
+    @classmethod
+    def text_or_empty(cls, v: object) -> str:
+        # Models return null for anything the recruiter did not state; that means "not stated", not an error.
+        return "" if v is None else str(v)
+
+    @field_validator("must_have", "nice_to_have", mode="before")
+    @classmethod
+    def list_of_text(cls, v: object) -> list[str]:
+        if v is None:
+            return []
+        items = [v] if isinstance(v, str) else v if isinstance(v, list) else []
+        return [str(i).strip() for i in items if i is not None and str(i).strip()]
+
 
 class Visitor(BaseModel):
     id: str
@@ -51,6 +66,7 @@ class Visitor(BaseModel):
     role: RoleSpec = Field(default_factory=RoleSpec)
     summary: str = ""
     character: str = "guide"
+    language: str = ""  # ISO 639-1 code of the language the visitor speaks (ADDENDUM-01 5.3)
     shortlist: list[str] = []
 
 
@@ -63,6 +79,10 @@ class MemoryStore:
         self._lock = threading.Lock()
         with self._lock:
             self._db.executescript(SCHEMA)
+            cols = {r["name"] for r in self._db.execute("PRAGMA table_info(visitors)")}
+            if "language" not in cols:  # databases created before the cloud pivot
+                self._db.execute("ALTER TABLE visitors ADD COLUMN language TEXT NOT NULL DEFAULT ''")
+                self._db.commit()
         self.status_detail = f"sqlite {self.path.name}"
 
     def _new_code(self) -> str:
@@ -87,7 +107,7 @@ class MemoryStore:
               if r["entity_id"].lower() in allowed]
         return Visitor(id=row["id"], code=row["code"], name=row["name"], purpose=row["purpose"],
                        facts=json.loads(row["facts"]), role=RoleSpec(**json.loads(row["role"])),
-                       summary=row["summary"], character=row["character"], shortlist=sl)
+                       summary=row["summary"], character=row["character"], language=row["language"], shortlist=sl)
 
     def get(self, visitor_id: str) -> Visitor | None:
         with self._lock:
@@ -100,7 +120,7 @@ class MemoryStore:
             return self._row_to_visitor(row) if row else None
 
     def update(self, visitor_id: str, **fields) -> Visitor | None:
-        allowed = {"name", "purpose", "facts", "role", "summary", "character"}
+        allowed = {"name", "purpose", "facts", "role", "summary", "character", "language"}
         sets, vals = [], []
         for k, v in fields.items():
             if k not in allowed or v is None:
@@ -164,6 +184,8 @@ def visitor_block(v: Visitor | None) -> str:
         lines.append(f"Hiring for: {v.role.title} (must have: {', '.join(v.role.must_have) or 'n/a'})")
     if v.shortlist:
         lines.append(f"Shortlisted students: {', '.join(v.shortlist)}")
+    if v.language and v.language != "en":
+        lines.append(f"Speaks: {v.language} (reply in this language unless they switch)")
     if v.summary:
         lines.append(f"So far: {v.summary}")
     return "What I know about this visitor (use it to personalise, do not repeat it back):\n" + "\n".join(lines)

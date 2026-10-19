@@ -1,125 +1,193 @@
-import { useCallback, useEffect, useState } from 'react'
-import { request } from './api/client'
-import type { Character, Health, Visitor } from './api/client'
-import { Icon } from './components/Icon'
-import { Welcome } from './views/Welcome'
-import { Ask } from './views/Ask'
-import { Talent } from './views/Talent'
-import PlayMode from './PlayMode'
+import { useEffect, useRef, useState } from 'react'
+import type { FormEvent, MutableRefObject, ReactNode } from 'react'
+import { request, safeUrl, streamChat } from './api/client'
+import type { Candidate, Character, Health, Source, Visitor } from './api/client'
+import { useVoice } from './hooks/useVoice'
+import { useLive } from './hooks/useLive'
+import { useDictation } from './hooks/useDictation'
+import { RichText } from './components/RichText'
+import { PlayMode } from './components/PlayMode'
 import './App.css'
 
-type Tab = 'ask' | 'talent' | 'quiz'
-const tabs: { id: Tab; label: string }[] = [
-  { id: 'ask', label: 'Ask' },
-  { id: 'talent', label: 'Talent' },
-  { id: 'quiz', label: 'Quiz' },
-]
-const VISITOR_KEY = 'hello-campus-visitor', TAB_KEY = 'hello-campus-tab'
-const store = {
-  get: (k: string) => { try { return localStorage.getItem(k) } catch { return null } },
-  set: (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* Storage blocked: the visit still works in this tab. */ } },
-  remove: (k: string) => { try { localStorage.removeItem(k) } catch { /* Ignore. */ } },
-}
+type Message = { id: string; role: 'user' | 'assistant'; text: string; sources: Source[]; character: Character; refused?: boolean }
+type Mode = 'chat' | 'voice'
+type CandidateAction = 'like' | 'dislike' | 'ok'
+type CandidateActions = Partial<Record<CandidateAction, () => void>>
+const CHIPS_SHOWN = 6
+const purposes = ['Session or talk', 'Judging or mentoring', 'Hiring', 'Event', 'Parent or alumni', 'Just visiting']
+const suggestions = ['Tell me about AITM', 'How can I contact the college?', 'What does the CSE department offer?', 'What has AITM achieved?']
 const errorMessage = (e: unknown) => e instanceof Error ? e.message : 'Something went wrong. Please try again.'
-const isTab = (v: string | null): v is Tab => v === 'ask' || v === 'talent' || v === 'quiz'
 
 function App() {
   const [visitor, setVisitor] = useState<Visitor | null>(null), [restoring, setRestoring] = useState(true)
-  const [returning, setReturning] = useState(false)
+  const [name, setName] = useState(''), [purpose, setPurpose] = useState('Just visiting'), [code, setCode] = useState('')
   const [character, setCharacter] = useState<Character>('guide')
-  const [health, setHealth] = useState<Health | null>(null), [healthChecked, setHealthChecked] = useState(false)
-  const [tab, setTab] = useState<Tab>(() => { const t = store.get(TAB_KEY); return isTab(t) ? t : 'ask' })
-  const [quizOpened, setQuizOpened] = useState(tab === 'quiz')
-  const [error, setError] = useState(''), [sheet, setSheet] = useState(false), [copied, setCopied] = useState(false)
-
+  const [messages, setMessages] = useState<Message[]>([]), [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState(false), [welcomeBusy, setWelcomeBusy] = useState(false)
+  const [error, setError] = useState(''), [status, setStatus] = useState('')
+  const [health, setHealth] = useState<Health | null>(null), [hiring, setHiring] = useState(false)
+  const [mode, setMode] = useState<Mode>('chat'), [play, setPlay] = useState(false)
+  const [, setHiringBusy] = useState(false)
+  const candidateActions = useRef<CandidateActions>({}), camera = useRef<HTMLVideoElement | null>(null)
+  const [cameraOn, setCameraOn] = useState(false)
+  const controller = useRef<AbortController | null>(null), scrollEnd = useRef<HTMLDivElement>(null)
   useEffect(() => {
     let active = true
-    const refresh = () => request<Health>('/api/health')
-      .then(h => { if (active) setHealth(h) }).catch(() => { if (active) setHealth(null) })
-      .finally(() => { if (active) setHealthChecked(true) })
+    const refresh = () => request<Health>('/api/health').then(h => { if (active) setHealth(h) }).catch(() => { if (active) setHealth(null) })
     void refresh()
     const timer = window.setInterval(() => void refresh(), 20000)
-    const id = store.get(VISITOR_KEY)
-    if (id) request<Visitor>(`/api/visitor/${encodeURIComponent(id)}`)
-      .then(v => { if (active) { setVisitor(v); setCharacter(v.character); setReturning(true) } })
-      .catch(() => store.remove(VISITOR_KEY))
-      .finally(() => { if (active) setRestoring(false) })
+    const id = localStorage.getItem('hello-campus-visitor')
+    if (id) request<Visitor>(`/api/visitor/${encodeURIComponent(id)}`).then(v => { if (active) { setVisitor(v); setCharacter(v.character) } }).catch(() => { localStorage.removeItem('hello-campus-visitor') }).finally(() => { if (active) setRestoring(false) })
     else setRestoring(false)
-    return () => { active = false; window.clearInterval(timer) }
+    return () => { active = false; window.clearInterval(timer); controller.current?.abort() }
   }, [])
-
-  useEffect(() => {
-    if (!sheet) return
-    const close = (e: KeyboardEvent) => { if (e.key === 'Escape') setSheet(false) }
-    window.addEventListener('keydown', close)
-    return () => window.removeEventListener('keydown', close)
-  }, [sheet])
-
-  const onError = useCallback((message: string) => setError(message), [])
-  function enter(v: Visitor, resumed: boolean) { store.set(VISITOR_KEY, v.id); setVisitor(v); setCharacter(v.character); setReturning(resumed); setError('') }
-  function go(next: Tab) { setTab(next); store.set(TAB_KEY, next); setError(''); if (next === 'quiz') setQuizOpened(true) }
-  async function changeCharacter(next: Character) {
-    if (!visitor || next === character) return
-    setCharacter(next)
-    try { setVisitor(await request<Visitor>(`/api/visitor/${visitor.id}/character`, 'PUT', { character: next })) }
-    catch (e) { setCharacter(character); setError(errorMessage(e)) }
+  useEffect(() => { scrollEnd.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, status])
+  function enter(v: Visitor) { localStorage.setItem('hello-campus-visitor', v.id); setVisitor(v); setCharacter(v.character); setError('') }
+  async function welcome(e: FormEvent, resume = false) {
+    e.preventDefault(); setWelcomeBusy(true); setError('')
+    try { enter(await request<Visitor>(resume ? `/api/visitor/resume/${encodeURIComponent(code.trim())}` : '/api/visitor', resume ? 'GET' : 'POST', resume ? undefined : { name: name.trim(), purpose })) }
+    catch (e) { setError(errorMessage(e)) } finally { setWelcomeBusy(false) }
   }
-  function copyCode() {
+  async function toggleCharacter(next: Character) {
     if (!visitor) return
-    void navigator.clipboard?.writeText(visitor.code).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1600) }).catch(() => undefined)
+    try { const v = await request<Visitor>(`/api/visitor/${visitor.id}/character`, 'PUT', { character: next }); setVisitor(v); setCharacter(next) }
+    catch (e) { setError(errorMessage(e)) }
   }
-  function newVisit() { store.remove(VISITOR_KEY); setSheet(false); setVisitor(null); setError(''); go('ask') }
+  function stopResponse() { controller.current?.abort(); controller.current = null; setBusy(false); setStatus('') }
+  async function send(text = draft, speak = mode !== 'chat') {
+    if (!visitor || busy || !text.trim()) return
+    voice.stop()
+    setDraft(''); setError(''); setBusy(true); setStatus('Looking that up…')
+    const answer: Message = { id: crypto.randomUUID(), role: 'assistant', text: '', sources: [], character }
+    setMessages(old => [...old.slice(-18), { id: crypto.randomUUID(), role: 'user', text: text.trim(), sources: [], character }, answer])
+    const abort = new AbortController(); controller.current = abort
+    try {
+      await streamChat(text.trim(), character, visitor.id, ({ event, data }) => {
+        if (abort.signal.aborted) return
+        if (event === 'token') { if (speak) voice.enqueue(data.t || ''); setStatus('Replying…'); setMessages(old => old.map(m => m.id === answer.id ? { ...m, text: m.text + (data.t || '') } : m)) }
+        if (event === 'sources') { if (speak) voice.enqueue('', true); setMessages(old => old.map(m => m.id === answer.id ? { ...m, sources: data.sources || [], refused: data.refused } : m)) }
+        if (event === 'memory') { setStatus(data.status === 'saving' ? 'Saving your preferences…' : ''); if (data.status === 'failed') setError(data.message || 'Preferences could not be updated.') }
+      }, abort.signal)
+      if (speak && !abort.signal.aborted) voice.enqueue('', true)
+    } catch (e) { if (!abort.signal.aborted) setError(errorMessage(e)) }
+    finally { if (controller.current === abort) { setBusy(false); setStatus(''); controller.current = null } }
+  }
+  const voice = useVoice(text => { void send(text, true) }, stopResponse)
+  const live = useLive(visitor?.id ?? null, character, camera)
+  const ready = health?.components.llm?.ok && health?.components.rag?.ok
+  const speechReady = Boolean(health?.components.llm?.ok)
+  // Fallback voice (ADDENDUM-01 5.5): Live turned off, quota or connection failure. Same tab, small badge.
+  const fallbackVoice = health?.live_enabled === false || live.status === 'unavailable'
+  function switchMode(next: Mode) {
+    stopResponse(); voice.stop(); live.stop(); setMode(next)
+    if (next !== 'chat') void voice.warmAudio().catch(e => setError(errorMessage(e)))
+  }
+  async function toggleCamera() {
+    if (cameraOn) { (camera.current?.srcObject as MediaStream | null)?.getTracks().forEach(t => t.stop()); if (camera.current) camera.current.srcObject = null; setCameraOn(false); return }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false })
+      if (camera.current) { camera.current.srcObject = stream; await camera.current.play() }
+      setCameraOn(true)
+    } catch (e) { setError(e instanceof DOMException && e.name === 'NotAllowedError' ? 'Camera access was blocked. Allow it in your browser site settings to use Look.' : 'Could not open the camera.') }
+  }
+  useEffect(() => () => { (camera.current?.srcObject as MediaStream | null)?.getTracks().forEach(t => t.stop()) }, [])
+  const modeTabs = <div className="mode-tabs" aria-label="Conversation mode">{(['chat', 'voice'] as Mode[]).map(m => <button key={m} className={mode === m ? 'selected' : ''} aria-pressed={mode === m} onClick={() => switchMode(m)}>{m === 'chat' ? '◌ Chat' : '♫ Talk'}</button>)}</div>
+  const chip = (s: Source, i: number) => safeUrl(s.url) ? <a key={`${s.url}-${i}`} href={safeUrl(s.url)} target="_blank" rel="noreferrer" title={s.last_checked ? `Checked ${s.last_checked}` : undefined}>{(s.citations?.length ? s.citations : [i + 1]).map(n => `[${n}]`).join(' ')} {s.title} ↗</a> : <span key={i}>{s.title} · Curated</span>
+  // Long lists (11 departments, 12 recruiters) show the first few chips and fold the rest away on small screens.
+  const chips = (sources: Source[]) => sources.length > 0 && <div className="source-chips">{sources.slice(0, CHIPS_SHOWN).map(chip)}{sources.length > CHIPS_SHOWN && <details className="more-chips"><summary>+{sources.length - CHIPS_SHOWN} more sources</summary>{sources.slice(CHIPS_SHOWN).map((s, i) => chip(s, i + CHIPS_SHOWN))}</details>}</div>
+  const livePanel = mode !== 'chat' && !fallbackVoice && <section className="voice-panel live-panel" aria-label="Live voice">
+    <div className="voice-status" role="status"><strong>{live.status === 'connecting' ? 'Connecting…' : live.status === 'reconnecting' ? 'Reconnecting, one moment…' : live.status !== 'live' ? 'Talk with your host.' : live.activity || (live.speaking ? 'Speaking… just talk to interrupt.' : 'Listening. Ask anything.')}</strong><span>{live.status === 'live' ? (hiring ? 'Speak naturally. Describe the role and I will find matching students.' : 'Speak naturally. Interrupt any time. Say “look at this” or tap Look to show me something.') : 'Tap Start, allow the microphone, then speak in any language.'}</span></div>
+    <div className="voice-buttons">{live.live ? <button className="talk-button recording" onClick={live.stop}>■ End conversation</button> : <button className="talk-button" disabled={!speechReady} onClick={() => void live.start()}>● Start talking</button>}</div>
 
-  if (restoring) return <div className="splash" role="status">Loading your visit</div>
-  if (!visitor) return <Welcome onEnter={enter} />
-
-  const ready = Boolean(health?.components.llm?.ok && health?.components.rag?.ok)
-  const status = !healthChecked ? 'checking' : !health ? 'offline' : ready ? 'ready' : 'starting'
-  const statusText = { checking: 'Checking connection', offline: 'Assistant offline', ready: 'Assistant ready', starting: 'Assistant starting' }[status]
-
-  return <div className="shell">
-    <header className="masthead">
-      <div className="masthead-inner">
-        <div className="wordmark">
-          <span className="wordmark-name">Hello Campus</span>
-          <span className="wordmark-place">AITM Bhatkal</span>
-        </div>
-        <div className="masthead-meta">
-          <span className={`status status-${status}`} title={statusText}><i aria-hidden="true" /><span className="status-text">{statusText}</span></span>
-          <button className="visit-btn" onClick={() => setSheet(true)}>
-            <span className="visit-btn-label">Visit</span><span className="mono">{visitor.code}</span>
-          </button>
-        </div>
-      </div>
-      <nav className="tabs" aria-label="Sections">
-        <div className="tabs-inner">
-          {tabs.map(t => <button key={t.id} className="tab" aria-current={tab === t.id ? 'page' : undefined} onClick={() => go(t.id)}>{t.label}</button>)}
-        </div>
-      </nav>
-    </header>
-
-    <main className="main">
-      {error && <div className="banner" role="alert"><p>{error}</p><button className="icon-btn" aria-label="Dismiss" onClick={() => setError('')}><Icon name="close" size={18} /></button></div>}
-      <section hidden={tab !== 'ask'}>
-        <Ask visitor={visitor} returning={returning} character={character} onCharacter={c => void changeCharacter(c)} health={health} active={tab === 'ask'} onError={onError} />
-      </section>
-      <section hidden={tab !== 'talent'}><Talent visitor={visitor} onError={onError} /></section>
-      {quizOpened && <section hidden={tab !== 'quiz'}><PlayMode initialPlayers={[visitor.name.slice(0, 40), 'Player 2']} /></section>}
+    {live.captions.length > 0 && <div className="captions" aria-live="polite">{live.captions.map(c => <p key={c.id} className={`caption ${c.role}`}><b>{c.role === 'user' ? visitor?.name : character === 'guide' ? 'Guide' : 'Analyst'}</b> {c.text}</p>)}</div>}
+    {chips(live.sources)}
+    {live.error && <p className="voice-error" role="alert">{live.error}</p>}
+  </section>
+  const voiceControls = mode !== 'chat' && fallbackVoice && <section className="voice-panel" aria-label="Voice controls"><span className="fallback-badge" title="Live voice is unavailable, so this uses push to talk">Fallback voice</span>
+    <div className="voice-status" role="status"><strong>{voice.capture === 'recording' ? 'Listening to you…' : voice.capture === 'requesting' ? 'Allow microphone access…' : voice.capture === 'transcribing' ? 'Transcribing your question…' : voice.playback === 'playing' ? 'Speaking the reply…' : voice.playback === 'preparing' ? 'Preparing the next sentence…' : busy ? 'Thinking about your question…' : 'A conversation, out loud.'}</strong><span>{voice.capture === 'recording' ? `Tap Send recording when you finish. Each recording can be up to ${Math.round((voice.config?.recording_max_ms || 0) / 1000)} seconds.` : 'Tap the microphone, speak, then tap again to send. Tap during a reply to interrupt.'}</span></div>
+    {live.error && <p className="voice-error">{live.error}</p>}<div className="voice-buttons"><button className={`talk-button ${voice.capture === 'recording' ? 'recording' : ''}`} disabled={!speechReady || !ready || !voice.config} aria-pressed={voice.capture === 'recording'} onClick={voice.toggle}>{voice.capture === 'recording' ? '■ Send recording' : voice.capture === 'requesting' || voice.capture === 'transcribing' ? 'Cancel recording' : busy || voice.playback !== 'idle' ? '● Interrupt and talk' : '● Tap to talk'}</button><button className="secondary" onClick={() => { stopResponse(); voice.stop() }}>Stop</button>{health?.live_enabled !== false && <button className="secondary" onClick={() => { live.setError(''); void live.start() }}>Try live voice again</button>}</div>
+    {voice.browserVoice && <small>Spoken by your browser voice while the server voice is unavailable.</small>}
+    {!speechReady && <p className="speech-unavailable">Speech is not ready: {health?.components.llm?.detail || 'waiting for backend'}. You can keep using Chat.</p>}
+    {voice.error && <p className="voice-error" role="alert">{voice.error}</p>}
+  </section>
+  const latest = messages[messages.length - 1]
+  const mediaPanel = <>{livePanel}{voiceControls}{hiring && mode !== 'chat' && fallbackVoice && latest && <article className="message" aria-live="polite"><div className="message-label">{latest.role === 'user' ? visitor?.name : latest.character === 'guide' ? 'Your guide' : 'Analyst'}</div><div className="message-text">{latest.text || 'Thinking…'}</div><div className="source-chips">{latest.sources.map((s, i) => safeUrl(s.url) ? <a key={`${s.url}-${i}`} href={safeUrl(s.url)} target="_blank" rel="noreferrer">{(s.citations || [i + 1]).map(n => `[${n}]`).join(' ')} {s.title} ↗</a> : <span key={i}>{s.title} · Curated</span>)}</div></article>}</>
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <a className="brand" href="/" aria-label="Hello Campus home"><span className="brand-icon">h<span>c</span></span><span>Hello<br /><strong>Campus.</strong></span></a>
+      <div className="campus-label">YOUR CAMPUS COMPANION</div><div className="campus-name">Anjuman Institute of<br />Technology & Management<span>Bhatkal, Karnataka</span></div>
+      <nav aria-label="Explore"><button className={!hiring && !play ? 'nav-item active' : 'nav-item'} aria-current={!hiring && !play ? 'page' : undefined} onClick={() => { stopResponse(); voice.stop(); live.stop(); setHiring(false); setPlay(false) }}><span>◌</span> Conversation <span className="nav-arrow">↗</span></button><button className={hiring && !play ? 'nav-item active' : 'nav-item'} aria-current={hiring && !play ? 'page' : undefined} disabled={!visitor || busy} onClick={() => { voice.stop(); live.stop(); if (cameraOn) void toggleCamera(); setPlay(false); setHiring(true); void toggleCharacter('analyst') }}><span>▤</span> Find talent <span className="nav-arrow">↗</span></button><button className={play ? 'nav-item active' : 'nav-item'} aria-current={play ? 'page' : undefined} disabled={!visitor || busy} onClick={() => { stopResponse(); voice.stop(); live.stop(); setHiring(false); setPlay(true) }}><span>▶</span> Get to Know AITM <span className="nav-arrow">↗</span></button></nav>
+      <div className="sidebar-note"><span className="dot" />A little local knowledge.<br /><strong>A warmer welcome.</strong><p>Ask about the campus, explore what’s happening, or find your next teammate.</p></div><a className="college-link" href="https://aitm.edu.in/" target="_blank" rel="noreferrer">Visit AITM website ↗</a>
+    </aside>
+    <main><header className="topbar"><span>WELCOME TO AITM <span className="topbar-divider">/</span> <strong>{play ? 'Get to Know AITM' : hiring ? 'Find talent' : 'Your visit, made easier'}</strong></span><span className={`connection ${ready ? 'online' : ''}`}><i />{ready ? 'Companion ready' : 'Companion connecting'}</span></header>
+      {error && <div className="error-banner" role="alert">{error}<button aria-label="Dismiss error" onClick={() => setError('')}>×</button></div>}
+      {restoring ? <div className="welcome"><p>Finding your visit…</p></div> : !visitor ? <section className="welcome"><div className="eyebrow">A FAMILIAR FACE IN A NEW PLACE</div><h1>New here?<br /><span>You’re in good company.</span></h1><p className="intro">A friendly guide to AITM, its people and the things that make it special. Let’s start with you.</p><div className="welcome-grid">
+        <form className="welcome-card" onSubmit={e => void welcome(e)}><label htmlFor="visitor-name">What should I call you?</label><input id="visitor-name" autoComplete="given-name" placeholder="Your name" value={name} maxLength={60} required onChange={e => setName(e.target.value)} /><fieldset><legend>What brings you here today?</legend><div className="purpose-chips">{purposes.map(p => <button type="button" key={p} className={purpose === p ? 'chip selected' : 'chip'} onClick={() => setPurpose(p)}>{p}</button>)}</div></fieldset><button className="primary" disabled={welcomeBusy || !name.trim()}>{welcomeBusy ? 'Getting things ready…' : 'Let’s get acquainted'} <span>↗</span></button><small>Your visit is remembered on this laptop. A short code lets you continue on another device.</small></form>
+        <form className="resume-card" onSubmit={e => void welcome(e, true)}><span className="resume-icon">↶</span><h2>Back for more?</h2><p>Pick up where you left off with your four-character visit code.</p><label htmlFor="resume-code">Visit code</label><input id="resume-code" className="code-input" placeholder="K7QM" value={code} maxLength={4} required onChange={e => setCode(e.target.value.toUpperCase())} /><button className="secondary" disabled={welcomeBusy || code.trim().length !== 4}>Resume my visit →</button></form>
+      </div></section> : play ? <PlayMode playerName={visitor.name} onError={setError} /> : hiring ? <Hiring visitor={visitor} onError={setError} onBusyChange={setHiringBusy} candidateActions={candidateActions} mediaPanel={<><div className="hiring-media-toolbar">{modeTabs}</div>{mediaPanel}</>} /> : <section className="conversation">
+        <div className="conversation-heading"><div><div className="eyebrow">MAKE YOURSELF AT HOME</div><h1>Hello, {visitor.name}<span className="hello-spark">✳</span></h1><p>A campus question, a little curiosity. Where shall we start?</p></div><div className="visit-code"><span>YOUR VISIT CODE</span><strong>{visitor.code}</strong><small>Continue on any device</small></div></div>
+        <div className="conversation-toolbar">{modeTabs}<div className="character-toggle" aria-label="Character">{(['guide', 'analyst'] as Character[]).map(c => <button key={c} disabled={busy} aria-pressed={character === c} className={character === c ? 'selected' : ''} onClick={() => void toggleCharacter(c)}>{c === 'guide' ? 'Guide · 0.8' : 'Analyst · 0.2'}</button>)}</div></div>
+        {mediaPanel}
+        <div className="messages" role="log" aria-live="polite" aria-relevant="additions text">{messages.length === 0 && <div className="empty-chat"><span className="companion-mark">✳</span><h2>Your friendly local, right here.</h2><p>{character === 'guide' ? 'I’ll help you find your feet, one question at a time.' : 'Ask a specific question. I’ll bring the facts and their sources.'}</p><div className="suggestions">{suggestions.map((q, i) => <button disabled={busy || !ready} key={q} onClick={() => void send(q)}><span>0{i + 1}</span>{q}<b>↗</b></button>)}</div></div>}
+          {messages.map(m => <article key={m.id} className={`message ${m.role}`}><div className="message-label">{m.role === 'user' ? visitor.name : m.character === 'guide' ? 'Your guide' : 'Analyst'}{m.role === 'assistant' && <span>✳</span>}</div><div className="message-text">{m.text ? <RichText text={m.text} /> : (busy ? 'Thinking…' : 'Response interrupted.')}</div>{chips(m.sources)}{m.refused && <small className="refusal-label">No verified information found for this question.</small>}</article>)}<div ref={scrollEnd} />
+        </div><div className="composer-area"><div className="response-status" role="status">{status || (!ready ? 'The companion is starting. You can resume chatting when it’s ready.' : '')}</div><form className="composer" onSubmit={e => { e.preventDefault(); void send() }}><label className="sr-only" htmlFor="message">Your question</label><input id="message" placeholder="Ask anything about your campus visit…" maxLength={4000} value={draft} disabled={busy} onChange={e => setDraft(e.target.value)} />{busy ? <button type="button" aria-label="Stop response" onClick={() => { stopResponse(); voice.stop() }}>■</button> : <button aria-label="Send message" disabled={!draft.trim() || !ready}>↑</button>}</form><div className="composer-footer"><span>Campus facts come with sources. If I don’t know, I’ll say so.</span><button disabled={busy} onClick={() => { voice.stop(); live.stop(); setMode('chat'); localStorage.removeItem('hello-campus-visitor'); setVisitor(null); setMessages([]); setHiring(false) }}>Start a new visit</button></div></div>
+      </section>}
     </main>
-
-    {sheet && <div className="sheet-backdrop" onClick={() => setSheet(false)}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" onClick={e => e.stopPropagation()}>
-        <div className="sheet-head"><h2 id="sheet-title">Your visit code</h2><button className="icon-btn" aria-label="Close" autoFocus onClick={() => setSheet(false)}><Icon name="close" size={18} /></button></div>
-        <p className="sheet-code mono">{visitor.code}</p>
-        <p className="sheet-text">Enter this code on another phone or laptop to continue with the same preferences and shortlist.</p>
-        <div className="sheet-actions">
-          <button className="btn btn-secondary" onClick={copyCode}><Icon name={copied ? 'check' : 'copy'} size={16} />{copied ? 'Copied' : 'Copy code'}</button>
-          <button className="btn btn-plain btn-danger" onClick={newVisit}>Start a new visit</button>
-        </div>
-        <p className="sheet-meta">Visiting as {visitor.name}{visitor.purpose ? `, ${visitor.purpose.toLowerCase()}` : ''}.</p>
-      </div>
-    </div>}
   </div>
 }
+// Keyword search for recruiters who don't have a job description at hand; keywords join the same role text.
+const SKILL_KEYWORDS = ['React', 'TypeScript', 'JavaScript', 'Python', 'Machine Learning', 'RAG', 'OpenAI', 'TTS', 'STT', 'Node.js', 'Java', 'Flutter', 'Android', 'UI/UX', 'C++', 'SQL']
+const KEYWORD_PREFIX = 'Skills: '
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const keywordPattern = (k: string) => new RegExp(`(^|[^\\w])${escapeRegExp(k)}(?![\\w+#])`, 'i')
+const hasKeyword = (text: string, k: string) => keywordPattern(k).test(text)
+function toggleKeyword(text: string, k: string): string {
+  if (hasKeyword(text, k)) {
+    const next = text.replace(new RegExp(`,?\\s*${escapeRegExp(k)}(?![\\w+#])`, 'i'), '').replace(/^Skills:\s*,?\s*/, KEYWORD_PREFIX).trim()
+    return next === KEYWORD_PREFIX.trim() ? '' : next
+  }
+  const t = text.trim()
+  return t ? `${t}${t.endsWith(':') ? ' ' : ', '}${k}` : `${KEYWORD_PREFIX}${k}`
+}
 
+const MicIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>
+
+// Talent summary built only from the evidence-checked claims already on screen: instant, no model call, nothing new.
+function talentSummary(people: Candidate[]): string[] {
+  return people.map(c => `${c.name}: ${c.claims[0]?.text ?? 'see the linked project work'}${c.claims.length > 1 ? ` Plus ${c.claims.length - 1} more linked ${c.claims.length > 2 ? 'projects' : 'project'}.` : ''}`)
+}
+const speakable = (lines: string[]) => `I found ${lines.length} ${lines.length === 1 ? 'student' : 'students'} with matching public work. ${lines.join(' ')}`.replace(/[*#`↗]/g, '')
+
+function Hiring({ visitor, onError, onBusyChange, candidateActions, mediaPanel }: { visitor: Visitor; onError: (message: string) => void; onBusyChange: (value: boolean) => void; candidateActions: MutableRefObject<CandidateActions>; mediaPanel: ReactNode }) {
+  const [focused, setFocused] = useState(0), [evidence, setEvidence] = useState('')
+  const [description, setDescription] = useState(''), [busy, setBusy] = useState(false), [searched, setSearched] = useState(false), [finding, setFinding] = useState(false), [summaryOpen, setSummaryOpen] = useState(false), [speaking, setSpeaking] = useState(false)
+  useEffect(() => () => window.speechSynthesis?.cancel(), [])
+  const [candidates, setCandidates] = useState<Candidate[]>([]), [shortlist, setShortlist] = useState<Candidate[]>([])
+  const [selected, setSelected] = useState<string[]>([]), [comparison, setComparison] = useState<Candidate[]>([])
+  const [readme, setReadme] = useState<{ before: string; after: string } | null>(null), [questions, setQuestions] = useState<{ text: string; url: string }[]>([])
+  const dictation = useDictation(text => setDescription(old => (old.trim() ? `${old.trim()} ${text}` : text).slice(0, 6000)))
+  useEffect(() => { onBusyChange(busy); return () => onBusyChange(false) }, [busy, onBusyChange])
+  useEffect(() => { request<Candidate[]>(`/api/hiring/shortlist/${visitor.id}`).then(setShortlist).catch(e => onError(errorMessage(e))) }, [visitor.id, onError])
+  async function perform(action: () => Promise<void>) { setBusy(true); onError(''); try { await action() } catch (e) { onError(errorMessage(e)) } finally { setBusy(false) } }
+  async function find(e: FormEvent) { e.preventDefault(); window.speechSynthesis?.cancel(); setSpeaking(false); setSummaryOpen(false); setFinding(true); try { await perform(async () => { await request('/api/hiring/role', 'POST', { visitor_id: visitor.id, description }); setCandidates(await request<Candidate[]>('/api/hiring/match', 'POST', { visitor_id: visitor.id })); setSearched(true) }) } finally { setFinding(false) } }
+  async function toggle(c: Candidate) { await perform(async () => { if (shortlist.some(s => s.entity_id === c.entity_id)) await request(`/api/hiring/shortlist/${visitor.id}/${c.entity_id}`, 'DELETE'); else await request('/api/hiring/shortlist', 'POST', { visitor_id: visitor.id, entity_id: c.entity_id }); setShortlist(await request<Candidate[]>(`/api/hiring/shortlist/${visitor.id}`)) }) }
+  const people = [...new Map([...candidates, ...shortlist].map(c => [c.entity_id, c])).values()]
+  const current = people[focused % Math.max(1, people.length)]
+  useEffect(() => {
+    candidateActions.current = {
+      like: () => { if (!busy && current && !shortlist.some(s => s.entity_id === current.entity_id)) void toggle(current); else if (!current) onError('Find a match first to shortlist a candidate.') },
+      dislike: () => { if (people.length) { const next = (focused + 1) % people.length; setFocused(next); document.getElementById(`candidate-${people[next].entity_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }) } else onError('Find a match first to browse candidates.') },
+      ok: () => { if (current) { setEvidence(current.entity_id); document.getElementById(`candidate-${current.entity_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }) } else onError('Find a match first to open their evidence.') },
+    }
+    return () => { candidateActions.current = {} }
+  })
+  return <section className="hiring-panel"><div className="eyebrow">GOOD PEOPLE. REAL EVIDENCE.</div><h1>Meet your next teammate.</h1><p>Describe the role. Explore students who have opted in, with links to the work behind each match.</p>{mediaPanel}<form className="role-form" onSubmit={e => void find(e)}><label htmlFor="role">Paste a job description, or pick keywords</label><div className="keyword-chips" role="group" aria-label="Skill keywords">{SKILL_KEYWORDS.map(k => { const on = hasKeyword(description, k); return <button type="button" key={k} className={on ? 'chip selected' : 'chip'} aria-pressed={on} disabled={busy} onClick={() => setDescription(d => toggleKeyword(d, k))}>{on ? '✓ ' : '+ '}{k}</button> })}</div><textarea id="role" required minLength={3} maxLength={6000} value={description} onChange={e => setDescription(e.target.value)} placeholder="A frontend intern who has built React applications… or tap the mic and describe the role" /><div className="role-actions"><button type="button" className={`mic-button ${dictation.state}`} aria-label={dictation.state === 'recording' ? 'Stop recording and add to the role' : dictation.state === 'transcribing' ? 'Transcribing, tap to cancel' : 'Speak the role'} title="Speak the role" aria-pressed={dictation.state === 'recording'} disabled={busy} onClick={dictation.toggle}><MicIcon /></button>{dictation.state !== 'idle' && <span className="mic-status" role="status">{dictation.state === 'recording' ? 'Listening… tap to stop' : 'Transcribing…'}</span>}<button className="primary" disabled={busy || dictation.state !== 'idle'}>{busy ? 'Working…' : 'Find matches ↗'}</button></div>{dictation.error && <p className="voice-error" role="alert">{dictation.error}</p>}</form>
+    {searched && candidates.length === 0 && <div className="empty-result"><h2>No verified matches yet.</h2><p>Matches appear when opted-in student profiles and project evidence are available for this role.</p></div>}<div className="hiring-actions"><span>{shortlist.length} shortlisted</span><button className="secondary" disabled={busy || selected.length !== 2} onClick={() => void perform(async () => setComparison(await request<Candidate[]>('/api/hiring/compare', 'POST', { entity_ids: selected })))}>Compare selected</button>{shortlist.length > 0 && <a className="secondary" href={`/api/hiring/export/${visitor.id}`}>Export shortlist ↓</a>}</div>
+    {!finding && people.length > 0 && <div className="talent-summary"><div className="talent-summary-bar"><button type="button" className="secondary" aria-expanded={summaryOpen} onClick={() => setSummaryOpen(o => !o)}>{summaryOpen ? 'Hide summary' : '≡ Summary'}</button><button type="button" className={`secondary listen ${speaking ? 'on' : ''}`} aria-pressed={speaking} disabled={!('speechSynthesis' in window)} onClick={() => { const synth = window.speechSynthesis; if (speaking) { synth.cancel(); setSpeaking(false); return } setSummaryOpen(true); synth.cancel(); const u = new SpeechSynthesisUtterance(speakable(talentSummary(people))); u.rate = 1; u.onend = () => setSpeaking(false); u.onerror = () => setSpeaking(false); setSpeaking(true); synth.speak(u) }}>{speaking ? '■ Stop' : '🔊 Listen'}</button></div>{summaryOpen && <ol className="talent-summary-list">{talentSummary(people).map((line, i) => <li key={i}>{line}</li>)}</ol>}</div>}
+    {finding && <div className="talent-loader" role="status" aria-live="polite"><p><span className="loader-orb" aria-hidden="true" />Reading the role, then searching students' real GitHub work…</p><div className="skeleton-grid" aria-hidden="true">{[0, 1, 2].map(i => <div key={i} className="skeleton-card"><i /><i /><i /><i /></div>)}</div></div>}
+    <div className="candidate-grid" hidden={finding}>{people.map(c => <article id={`candidate-${c.entity_id}`} className={`candidate-card ${current?.entity_id === c.entity_id ? 'focused-candidate' : ''}`} key={c.entity_id}><label className="compare-check"><input type="checkbox" checked={selected.includes(c.entity_id)} disabled={busy || (!selected.includes(c.entity_id) && selected.length >= 2)} onChange={e => setSelected(old => e.target.checked ? [...old, c.entity_id] : old.filter(id => id !== c.entity_id))} />Compare</label><h2>{c.name}</h2><p className="candidate-handles"><a href={`https://github.com/${c.entity_id}`} target="_blank" rel="noreferrer">@{c.entity_id}</a>{c.linkedin_url && safeUrl(c.linkedin_url) && <a className="linkedin-link" href={safeUrl(c.linkedin_url)} target="_blank" rel="noreferrer">LinkedIn ↗</a>}{c.headline && <span> · {c.headline}</span>}</p><div className="language-chips">{c.languages.map(l => <span key={l}>{l}</span>)}</div>{c.claims.map((claim, i) => <p key={i}>{claim.text} <a href={safeUrl(claim.url)} target="_blank" rel="noreferrer">Evidence ↗</a></p>)}<details open={evidence === c.entity_id} onToggle={e => { if (e.currentTarget.open) setEvidence(c.entity_id); else if (evidence === c.entity_id) setEvidence('') }}><summary>Project evidence</summary>{c.sources.map(url => <a className="evidence-link" key={url} href={safeUrl(url)} target="_blank" rel="noreferrer">{url} ↗</a>)}</details><div className="candidate-actions"><button disabled={busy} onClick={() => void toggle(c)}>{shortlist.some(s => s.entity_id === c.entity_id) ? 'Remove from shortlist' : '+ Shortlist'}</button><button disabled={busy} onClick={() => void perform(async () => { setQuestions(await request(`/api/hiring/interview/${c.entity_id}`, 'POST')); setReadme(null) })}>Interview kit</button><button disabled={busy} onClick={() => void perform(async () => { setReadme(await request(`/api/students/${c.entity_id}/readme`, 'POST')); setQuestions([]) })}>Improve README</button></div></article>)}</div>
+    {comparison.length === 2 && <div className="comparison"><h2>Side by side</h2><table><thead><tr><th>Recorded evidence</th>{comparison.map(c => <th key={c.entity_id}>{c.name}</th>)}</tr></thead><tbody><tr><th>Languages</th>{comparison.map(c => <td key={c.entity_id}>{c.languages.join(', ') || 'Not recorded'}</td>)}</tr><tr><th>Sources</th>{comparison.map(c => <td key={c.entity_id}>{c.sources.map(url => <a key={url} className="evidence-link" href={safeUrl(url)} target="_blank" rel="noreferrer">{url}</a>)}</td>)}</tr></tbody></table></div>}
+    {readme && <section><h2>Profile README</h2><div className="readme-grid"><div><h3>Before</h3><pre>{readme.before || 'No existing profile README.'}</pre></div><div><h3>Suggested version</h3><pre>{readme.after}</pre></div></div></section>}{questions.length > 0 && <section className="interview"><h2>Interview questions</h2><ol>{questions.map((q, i) => <li key={i}>{q.text} <a href={safeUrl(q.url)} target="_blank" rel="noreferrer">Repository ↗</a></li>)}</ol></section>}
+  </section>
+}
 export default App

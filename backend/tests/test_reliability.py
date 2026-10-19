@@ -1,44 +1,40 @@
-"""Citation identity, prompt budgets, and resource cleanup acceptance checks."""
+"""Prompt budgets, tool schema shape, and resource cleanup acceptance checks."""
 import importlib
 
 import pytest
 
 from backend.config import settings
-from backend.llm.characters import character
-from backend.llm.chat import cited_sources
 from backend.llm.client import ChatMessage
-from backend.llm.prompts import build_messages, excerpt
-from backend.rag.store import Hit, sources_for
+from backend.llm.prompts import recent_history
 from backend.status import Registry
+from backend.tools import definitions  # noqa: F401, registers the tools
+from backend.tools.registry import TOOLS, chat_tools, live_declarations
 
 
-def hit(url, title="Fixture"):
-    return Hit(text="Synthetic campus record", title=title, source_url=url, collection="campus", score=0.9)
-
-
-def test_citation_numbers_survive_subset_and_deduplication():
-    hits = [hit("https://example.org/a"), hit("https://example.org/b"), hit("https://example.org/a")]
-    sources = cited_sources("Library details [2], campus details [3].", hits)
-    assert [(s.url, s.citations) for s in sources] == [
-        ("https://example.org/b", [2]), ("https://example.org/a", [3])]
-    assert sources_for(hits)[0].citations == [1, 3]
-
-
-def test_prompt_excerpt_finds_late_relevant_passage():
-    text = "General college background. " * 100 + "Library visitors need a day pass. Library opens at 8 am."
-    selected = excerpt(text, "When does the library open?", 300)
-    assert "Library opens at 8 am" in selected
-    assert len(selected) <= 300
-
-
-def test_history_prompt_budget_keeps_latest_question(monkeypatch):
+def test_history_prompt_budget_keeps_latest_turn(monkeypatch):
     monkeypatch.setattr(settings, "chat_history_chars", 90)
     history = [ChatMessage(role="user" if i % 2 == 0 else "assistant", content=f"Turn {i}: " + "x" * 50)
                for i in range(10)]
-    messages = build_messages(character("guide"), "Current question", [], "", history, True)
-    assert sum(len(m.content) for m in messages[1:-1]) <= 90
-    assert messages[-2].content.startswith("Turn 9")
-    assert messages[-1].content == "Current question"
+    recent = recent_history(history)
+    assert sum(len(m.content) for m in recent) <= 90
+    assert recent[-1].content.startswith("Turn 9")
+
+
+def test_tool_schemas_are_provider_safe():
+    """Both providers reject JSON-schema extras such as anyOf, title and default."""
+    text = str(chat_tools()) + str(live_declarations())
+    assert "anyOf" not in text and "'title'" not in text and "'default'" not in text and "$ref" not in text
+    assert {t["function"]["name"] for t in chat_tools()} == {n for n, t in TOOLS.items() if t.chat}
+    assert "look" not in {t["function"]["name"] for t in chat_tools()}  # needs the camera
+
+
+def test_grounding_tools_block_on_live():
+    """M-004: grounding tools must finish before the host speaks; writes may run in the background."""
+    behavior = {d["name"]: d["behavior"] for d in live_declarations()}
+    for name in ("search_campus", "get_local_tips", "get_schedule", "look", "hiring_match", "get_visitor_profile"):
+        assert behavior[name] == "BLOCKING"
+    for name in ("remember", "shortlist_add", "shortlist_remove"):
+        assert behavior[name] == "NON_BLOCKING"
 
 
 class Resource:
