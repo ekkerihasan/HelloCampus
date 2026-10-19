@@ -64,6 +64,8 @@ async def test_role_match_and_unknown_url_removed(hiring_api):
     res = await client.post("/api/hiring/match", json={"visitor_id": v.id})
     assert res.status_code == 200
     assert res.json()[0]["claims"] == [{"text": "Built a React project", "url": URL}]
+    assert res.json()[0]["matched_must_have"] == ["React"]
+    assert res.json()[0]["missing_must_have"] == []
     assert "fake.invalid" not in res.text
 
 

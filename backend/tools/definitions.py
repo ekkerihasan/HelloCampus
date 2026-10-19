@@ -9,7 +9,7 @@ from backend.config import settings
 from backend.hiring import service as hiring
 from backend.memory.store import Visitor
 from backend.rag.search import search_campus as search
-from backend.rag.store import confident
+from backend.rag.local_recommend import rank_places, vegetarian_request
 from backend.tools.registry import ToolContext, ToolError, tool
 
 REFUSAL_NOTE = ("Nothing in the campus data answers this yet. Say you don't have that yet and suggest the help desk "
@@ -66,22 +66,31 @@ async def get_local_tips(ctx: ToolContext, a: LocalArgs) -> dict:
     sched = ctx.get("schedule")
     if sched is None:
         raise ToolError("Local tips are not loaded right now.")
-    items = await asyncio.to_thread(sched.local, a.type, a.veg)
+    # Keep the visitor's words as well as a model-rephrased query. An explicit dietary request
+    # must survive a shortened tool call in both text and voice paths.
+    query = " ".join(dict.fromkeys(filter(None, (ctx.user_message.strip(), a.query))))
+    veg = a.veg
+    if a.type == "food" and vegetarian_request(query):
+        veg = True
+    items = await asyncio.to_thread(sched.local, a.type, veg, None)
     note = ""
-    if a.veg and not items:
+    if veg and not items:
         # No confirmed veg place: offer places whose veg options are unknown, and say so plainly.
-        items = await asyncio.to_thread(sched.local, a.type, None, 8, True)
+        items = await asyncio.to_thread(sched.local, a.type, None, None, True)
         if items:
             note = ("None of these places has confirmed vegetarian options. Say that veg options are not confirmed "
                     "and suggest asking the restaurant.")
-    store = ctx.get("rag")
-    if a.query and items and store is not None:
-        hits = confident(await store.retrieve(a.query, ["locality"], k=settings.rag_top_k_chat))
-        order = {h.record_id: i for i, h in enumerate(hits)}
-        items.sort(key=lambda it: order.get(it["id"], len(order)))
+    items = rank_places(items, query)
     if not items:
         return {"items": [], "refusal": True, "note": REFUSAL_NOTE, "sources": []}
-    items = items[:settings.rag_top_k_chat]
+    limit = settings.rag_top_k_voice if ctx.mode == "voice" else settings.rag_top_k_chat
+    items = items[:limit]
+    cautions = [note] if note else []
+    if a.type == "food":
+        cautions.append("Use only recorded details. Blank prices, distances and hours are unknown. "
+                        "Listed hours do not confirm a place is open now; do not claim dietary suitability "
+                        "beyond the recorded vegetarian flag.")
+    note = " ".join(cautions)
     return {"items": items, **({"note": note} if note else {}), "sources": [{"title": it["name"], "url": it.get("source_url", "curated"), "collection": "locality",
                                          "last_checked": it["last_checked"]} for it in items]}
 
@@ -161,7 +170,7 @@ class MatchArgs(BaseModel):
       MatchArgs)
 async def hiring_match(ctx: ToolContext, a: MatchArgs) -> dict:
     v = await _visitor(ctx)
-    if not v.role.title:
+    if not (v.role.title or v.role.must_have or v.role.nice_to_have):
         return {"candidates": [], "note": "No role saved yet. Ask what they are hiring for, then hiring_set_role."}
     if ctx.get("rag") is None:
         raise ToolError("The knowledge base is not loaded right now.")
@@ -170,7 +179,13 @@ async def hiring_match(ctx: ToolContext, a: MatchArgs) -> dict:
     if not found:
         return {"candidates": [], "note": "No opted-in student has stored evidence for this role yet. Say so."}
     return {"candidates": [{"id": c.entity_id, "name": c.name, "reasons": [cl.text for cl in c.claims],
-                            "evidence_urls": [cl.url for cl in c.claims]} for c in found],
+                            "evidence_urls": [cl.url for cl in c.claims],
+                            "matched_must_have": c.matched_must_have,
+                            "missing_must_have": c.missing_must_have,
+                            "matched_nice_to_have": c.matched_nice_to_have} for c in found],
+            "note": "Matched requirements are mentions in stored evidence, not verified proficiency. "
+                    "Missing requirements mean no stored evidence was found, not that the student lacks the skill. "
+                    "Do not infer seniority, availability or employment eligibility.",
             "sources": [{"title": f"{c.name}: evidence", "url": cl.url, "collection": "students"}
                         for c in found for cl in c.claims]}
 

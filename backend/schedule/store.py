@@ -90,15 +90,17 @@ class ScheduleStore:
                                     "LIMIT ?", (today or Date.today().isoformat(), limit))
             return [{k: r[k] for k in r.keys() if k != "placeholder"} for r in rows]
 
-    def local(self, kind: str, veg: bool | None = None, limit: int = 8, unconfirmed_veg: bool = False) -> list[dict]:
+    def local(self, kind: str, veg: bool | None = None, limit: int | None = 8, unconfirmed_veg: bool = False) -> list[dict]:
         sql, args = "SELECT body FROM locality WHERE placeholder=0 AND type=?", [kind]
         if unconfirmed_veg:
             sql += " AND veg_options IS NULL"
         elif veg is not None:
             sql += " AND veg_options=?"
             args.append(int(veg))
-        sql += " ORDER BY name LIMIT ?"
-        args.append(limit)
+        sql += " ORDER BY name"
+        if limit is not None:
+            sql += " LIMIT ?"
+            args.append(limit)
         with self._lock:
             return [json.loads(r["body"]) for r in self._db.execute(sql, args)]
 

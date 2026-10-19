@@ -2,7 +2,7 @@
 Keys and model IDs come from .env only (ADDENDUM-01 section 3). Empty model IDs fail loudly at call time."""
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from typing import Annotated
 
@@ -119,6 +119,9 @@ class Settings(BaseSettings):
     query_embed_cache: int = 256  # recent query embeddings kept in memory
     rag_top_k_chat: int = 4
     rag_top_k_voice: int = 3
+    hiring_candidate_limit: int = Field(default=5, ge=1, le=20)
+    hiring_records_per_candidate: int = Field(default=4, ge=1, le=20)
+    hiring_record_chars: int = Field(default=1600, ge=200, le=6000)
     rag_min_score: float = 0.62  # cosine similarity; recalibrate for the Gemini embedder (PROGRESS.md)
     rag_min_keyword_coverage: float = 0.6  # share of query terms an exact-match chunk must contain
     chunk_tokens: int = 400

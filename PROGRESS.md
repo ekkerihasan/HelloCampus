@@ -1,5 +1,45 @@
 # Hello Campus: Progress Log
 
+## Hiring recommendation improvements (2026-10-19)
+Plan:
+- Update from origin/pivot/cloud-core, preserving local lunch recommendation work.
+- Compare all consenting students before capping candidates, and prioritize must-have evidence over optional skills.
+- Keep project summaries and LinkedIn links from the latest team changes; bound evidence per candidate.
+- Verify candidate order, skill aliases/boundaries, missing requirements and consent after inference.
+
+Updated local feat/ui-redesign from 56d3649 to 85c2be3 with a fast-forward; saved lunch edits restored cleanly.
+Final update also includes 2fcd3ed, the teammate's quiz leaderboard fix received during this work.
+Implemented deterministic requirement coverage ordering before and after model inference, whole-corpus literal-skill
+recall alongside confident retrieval, distinct student ranking, and bounded relevant-record context. Added matched
+and missing must-have fields and matched optional requirements to HTTP and chat/Live tool results. These are
+mentions in stored evidence, not proof of proficiency; missing evidence is not proof that a student lacks a skill.
+Existing evidence URL checks and the post-inference consent check remain in place.
+Validation: pytest on test_hiring, test_hiring_ranking, test_local_recommend, test_locality, test_chat_memory and
+test_reliability: 52 passed. Fixtures cover duplicate retrieval hits, a stronger student absent from vector results,
+must-have priority, model reordering, Java/JavaScript and C/C++ boundaries, aliases, missing requirements,
+bounded relevant evidence, no unrelated inference and withdrawal of consent during inference.
+Real-data offline shortlist check: 12 current consenting students; React/TypeScript and Python role checks returned
+up to five candidates with explicit stored skill mentions. No live provider calls or proficiency assessment performed.
+
+## Local recommendation improvements (2026-10-19)
+Plan:
+- Fast-forward current branch from origin/pivot/cloud-core, preserving the remote team's work.
+- Rank all eligible curated places before limiting results, using local BM25 on descriptive fields.
+- Preserve explicit vegetarian requests from visitor words and label unknown suitability.
+- Verify full-set ranking, dietary filters, citations, voice limits and operation without embeddings.
+
+Git updated from 855a91f to 56d3649 with no conflicts. The new locality snapshot contains two real food
+entries; price, distance and vegetarian suitability remain unconfirmed. No restaurant data is invented.
+
+Result: implemented complete-set BM25 ranking, original visitor wording for diet/cuisine, explicit unknown-veg
+fallback, independent local lookup without embeddings and separate chat/voice result limits.
+Validation: `.venv\Scripts\python -m pytest backend/tests/test_local_recommend.py backend/tests/test_locality.py
+backend/tests/test_reliability.py backend/tests/test_chat_memory.py -q`: 36 passed.
+Regression: `.venv\Scripts\python -m pytest backend/tests/test_rag.py backend/tests/test_hiring.py -q`: 20 passed.
+Real-data tool run for vegetarian Arabic lunch returned Al Khaleej and Layali, both with null vegetarian flags,
+two source links and an explicit warning that vegetarian options are not confirmed. No provider calls were made.
+Remaining: verify prices, campus distance and vegetarian suitability; listed hours cannot establish open-now status.
+
 ## ADDENDUM-01 cloud pivot: replan (2026-10-19)
 Status: in progress
 ADDENDUM-01 supersedes the local stack. Everything logged below this block refers to the old Ollama/YOLO/local speech plan and is history only.
