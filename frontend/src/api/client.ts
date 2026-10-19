@@ -5,7 +5,7 @@ export type Health = { ok: boolean; components: Record<string, { ok: boolean; de
 export type LiveToken = { welcome_cue: string; token: string; model: string; api_version: string; expire_time: string; config: Record<string, unknown>; locked: boolean }
 export type ToolResult = Record<string, unknown> & { sources?: Source[]; related_sources?: Source[]; refusal?: boolean; error?: string }
 export type SpeechConfig = { live_enabled: boolean; server_tts: boolean; sentence_max_chars: number; recording_max_ms: number }
-export type Candidate = { entity_id: string; name: string; headline: string; languages: string[]; claims: { text: string; url: string }[]; sources: string[] }
+export type Candidate = { entity_id: string; name: string; headline: string; languages: string[]; claims: { text: string; url: string }[]; sources: string[]; linkedin_url?: string }
 export type StreamEvent = { event: string; data: { t?: string; message?: string; sources?: Source[]; refused?: boolean; status?: string } }
 export async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const res = await fetch(path, { method, headers: body === undefined ? undefined : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })

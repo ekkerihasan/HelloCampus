@@ -191,6 +191,20 @@
 :root .skeleton-card i:nth-child(4) { width: 75%; }
 @keyframes luxe-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 
+/* Candidate handles: GitHub and the student-provided LinkedIn link. */
+:root .candidate-handles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+:root .candidate-handles a { color: var(--plum-2); text-decoration: none; }
+:root .candidate-handles a:hover { color: var(--gold); }
+:root .linkedin-link { padding: 3px 10px; border-radius: 999px; border: 1px solid #c9d8ea; background: #f2f7fc; color: #0a66c2 !important; font-weight: 600; transition: background .25s, transform .25s var(--ease); }
+:root .linkedin-link:hover { background: #e3eefa; transform: translateY(-1px); }
+
+/* Talent summary with voice. */
+:root .talent-summary { margin: 22px 0 6px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(160deg, #fbf7ef, #f6efe2); box-shadow: var(--shadow-1); animation: luxe-rise .4s var(--ease) both; }
+:root .talent-summary-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+:root .talent-summary .listen.on { background: var(--plum); color: #fff6e6; border-color: var(--plum); animation: luxe-pulse 1.6s ease-out infinite; }
+:root .talent-summary-list { margin: 14px 0 0; padding-left: 22px; display: grid; gap: 8px; font-size: 14px; line-height: 1.7; color: var(--ink-soft); animation: luxe-rise .35s var(--ease) both; }
+:root .talent-summary-list li::marker { color: var(--gold); font-family: var(--serif); font-weight: 600; }
+
 /* Mode tabs and the Guide / Analyst switch. */
 :root .mode-tabs, :root .character-toggle { background: rgba(255, 253, 249, .7); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
 :root .mode-tabs button, :root .character-toggle button { border-radius: 999px; transition: background .3s var(--ease), color .3s, box-shadow .3s; }

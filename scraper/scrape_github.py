@@ -24,6 +24,15 @@ class OptinStudent(BaseModel):
     name: str
     github_username: str
     headline: str = ""
+    linkedin_url: str = ""  # student-provided profile link, shown as a link only, never fetched
+
+
+LINKEDIN_PROFILE = re.compile(r"https://www\.linkedin\.com/in/[A-Za-z0-9_%-]{3,100}/?")
+
+
+def _linkedin(value: str | None) -> str:
+    url = (value or "").strip()
+    return url if LINKEDIN_PROFILE.fullmatch(url) else ""
 
 
 def load_optin(path: Path | None = None) -> list[OptinStudent]:
@@ -40,7 +49,8 @@ def load_optin(path: Path | None = None) -> list[OptinStudent]:
         user = (row.get("github_username") or "").strip().lstrip("@")
         if re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?", user):
             out.append(OptinStudent(name=(row.get("name") or user).strip(), github_username=user,
-                                    headline=(row.get("headline") or "").strip()))
+                                    headline=(row.get("headline") or "").strip(),
+                                    linkedin_url=_linkedin(row.get("linkedin_url"))))
     return out
 
 
