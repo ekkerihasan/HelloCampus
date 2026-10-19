@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { quizClient } from './play/client'
 import { isTyping, keyboardAction } from './play/keyboard'
-import type { Action, Config, Game, Mode, Score } from './play/types'
+import type { Action, Config, Game, Mode, Player, Score } from './play/types'
 import './PlayMode.css'
 
 export default function PlayMode({ apiBase = '/api/quiz', initialPlayers = ['Player 1', 'Player 2'] }: { apiBase?: string; initialPlayers?: [string, string] }) {
@@ -13,6 +13,7 @@ export default function PlayMode({ apiBase = '/api/quiz', initialPlayers = ['Pla
   const [scores, setScores] = useState<Score[]>([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [faceToFace, setFaceToFace] = useState(false)
   const actionQueue = useRef<Promise<void>>(Promise.resolve())
   const polling = useRef(false)
   const active = game !== null && game.phase !== 'finished'
@@ -82,31 +83,91 @@ export default function PlayMode({ apiBase = '/api/quiz', initialPlayers = ['Pla
   const question = game?.question
   const revealed = game?.phase === 'reveal' || game?.phase === 'finished'
   const safeSource = question?.source_url && /^https?:\/\//i.test(question.source_url) ? question.source_url : undefined
+  const statusText = !game ? '' : game.phase === 'finished' ? 'Game complete. The score is saved to today’s leaderboard.'
+    : game.message || (game.phase === 'buzz' ? 'First to buzz answers.' : game.phase === 'coop' ? 'Both players pick an answer. Agree to lock it in.'
+      : game.phase === 'answer' ? `${game.players[game.active_player ?? 0]} is answering.` : 'Answer revealed.')
 
-  return <section className="play-mode" aria-labelledby="play-title">
-    <header className="play-header"><div><p className="play-eyebrow">Campus challenge</p><h1 id="play-title">Play together</h1><p>Two players. Five questions. Answers backed by campus sources.</p></div><span className="play-badge">Keyboard ready</span></header>
+  function pad(player: Player) {
+    if (!game || !question) return null
+    const name = game.players[player], keys = player === 0 ? ['1', '2', '3', '4'] : ['7', '8', '9', '0']
+    const answering = game.mode === 'versus' && game.phase === 'answer' && game.active_player === player
+    const waiting = game.mode === 'versus' && game.phase === 'answer' && game.active_player !== player
+    return <section className={`pad pad-${player + 1} ${answering ? 'is-turn' : ''}`} aria-label={`${name} controls`}>
+      <header className="pad-head">
+        <span className="pad-name">{name}</span>
+        <span className="pad-score num">{game.mode === 'versus' ? game.scores[player] : ''}</span>
+      </header>
+      {game.mode === 'versus' && game.phase === 'buzz' && <button type="button" className="pad-buzz" onClick={() => void act({ action: 'buzz', player })}>
+        Buzz<span className="pad-key mono">{player === 0 ? 'A' : 'L'}</span>
+      </button>}
+      {answering && <div className="pad-options">{question.options.map((option, i) => <button type="button" key={i} onClick={() => void act({ action: 'answer', player, option: i })}>
+        <span className="pad-opt-num mono">{i + 1}</span><span className="pad-opt-text">{option}</span>
+      </button>)}</div>}
+      {waiting && <p className="pad-wait">Waiting for {game.players[game.active_player ?? 0]}</p>}
+      {game.phase === 'coop' && <div className="pad-options">{question.options.map((option, i) => <button type="button" key={i} aria-pressed={game.selections[player] === i}
+        onClick={() => void act({ action: 'answer', player, option: i })}>
+        <span className="pad-opt-num mono">{keys[i]}</span><span className="pad-opt-text">{option}</span>
+      </button>)}</div>}
+      {revealed && <p className="pad-wait">{game.phase === 'finished' ? 'Game over' : 'Next question when ready'}</p>}
+    </section>
+  }
+
+  return <section className={`play-mode ${faceToFace ? 'is-face-to-face' : ''}`} aria-labelledby="play-title">
+    <header className="play-header">
+      <h1 id="play-title">Quiz</h1>
+      <p>Two players on one screen, five questions. Every answer is checked against a campus source.</p>
+    </header>
     <div className="play-layout"><main>
-      <fieldset className="play-setup" disabled={active || busy}><legend>Set up your game</legend>
-        <div className="play-modes"><button type="button" aria-pressed={mode === 'versus'} onClick={() => setMode('versus')}>Versus</button><button type="button" aria-pressed={mode === 'coop'} onClick={() => setMode('coop')}>Co-op</button></div>
-        <div className="play-names">{players.map((name, index) => <label key={index}>Player {index + 1}<input value={name} maxLength={40} onChange={event => setPlayers(current => index === 0 ? [event.target.value, current[1]] : [current[0], event.target.value])} /></label>)}</div>
-      </fieldset>
-      <p className="play-instructions">{mode === 'versus' ? 'A buzzes Player 1. L buzzes Player 2. The locked player answers with 1 to 4. A miss passes the question once.' : 'Player 1 selects with 1 to 4. Player 2 selects with 7, 8, 9, 0. Agree for half a second to lock your answer. Keep a streak for bonus points.'} Press Enter after a reveal.</p>
-      {error && <p role="alert" className="play-error">{error}</p>}
-      {config && !config.enabled && <p role="status">Play is currently switched off.</p>}
-      {config?.enabled && !config.ready && <p role="status">Quiz needs more campus data. {config.question_count} verified questions available; {config.questions_per_game} needed.</p>}
-      {!active && <button className="play-primary" disabled={busy || !config?.enabled || !config.ready || players.some(name => !name.trim())} onClick={() => void start()}>{busy ? 'Starting...' : game ? 'Play again' : 'Start game'}</button>}
-      {game && <div className="play-game">
-        <div className="play-scoreboard" aria-label="Scoreboard">{game.mode === 'versus' ? game.players.map((name, i) => <div key={i} className={game.active_player === i ? 'play-player play-locked' : 'play-player'}><span>{name}</span><strong>{game.scores[i]}</strong>{game.active_player === i && <small>Answer locked to you</small>}</div>) : <div className="play-player"><span>{game.players.join(' + ')}</span><strong>{game.team_score}</strong><small>Streak: {game.streak}</small></div>}</div>
-        <p className="play-progress">Question {game.question_number} of {game.total_questions} {game.remaining_ms !== null && <span role="timer">{Math.max(0, Math.ceil(game.remaining_ms / 1000))}s</span>}</p>
-        <p role="status" className="play-status">{game.phase === 'finished' ? 'Game complete. Your score is saved to today’s leaderboard.' : game.message || (game.phase === 'buzz' ? 'Who knows this one? Buzz in!' : game.phase === 'coop' ? 'Choose together. Agree to lock.' : game.phase === 'answer' ? `${game.players[game.active_player ?? 0]}, choose your answer.` : 'Answer revealed.')}</p>
-        {question && <article className="play-question"><h2>{question.question}</h2><button type="button" onClick={readQuestion} disabled={!('speechSynthesis' in window)}>Read question aloud</button><ol className="play-options">{question.options.map((option, i) => <li className={revealed && question.answer_index === i ? 'play-correct' : ''} key={i}><span>{i + 1}</span>{option}{revealed && question.answer_index === i && <strong>Correct</strong>}</li>)}</ol>
-          {game.mode === 'versus' && game.phase === 'buzz' && <div className="play-modes">{game.players.map((name, i) => <button key={i} onClick={() => void act({ action: 'buzz', player: i === 0 ? 0 : 1 })}>Buzz: {name} ({i === 0 ? 'A' : 'L'})</button>)}</div>}
-          {game.phase === 'answer' && <div className="play-answer-buttons">{question.options.map((_, i) => <button key={i} onClick={() => void act({ action: 'answer', player: game.active_player ?? 0, option: i })}>Answer {i + 1}</button>)}</div>}
-          {game.phase === 'coop' && <div className="play-coop">{game.players.map((name, player) => <fieldset key={player}><legend>{name}</legend>{question.options.map((_, option) => <button key={option} aria-pressed={game.selections[player] === option} onClick={() => void act({ action: 'answer', player: player === 0 ? 0 : 1, option })}>{option + 1} <small>({player === 0 ? option + 1 : ['7', '8', '9', '0'][option]})</small></button>)}</fieldset>)}{game.hold_remaining_ms !== null && <p role="status">Agreed. Locking in {Math.max(0, game.hold_remaining_ms)}ms...</p>}</div>}
-          {revealed && question.evidence && <blockquote>{question.evidence}{safeSource && <a href={safeSource} target="_blank" rel="noopener noreferrer">View campus source</a>}</blockquote>}
-        </article>}
-        {game.phase === 'reveal' && <button className="play-primary" onClick={() => void act({ action: 'next' })}>Continue (Enter)</button>}
+      {!active && <div className="play-setup-wrap">
+        <fieldset className="play-setup" disabled={busy}><legend>New game</legend>
+          <div className="play-modes" role="group" aria-label="Mode">
+            <button type="button" aria-pressed={mode === 'versus'} onClick={() => setMode('versus')}>Versus</button>
+            <button type="button" aria-pressed={mode === 'coop'} onClick={() => setMode('coop')}>Co-op</button>
+          </div>
+          <p className="play-instructions">{mode === 'versus'
+            ? 'Race to buzz. The first player to buzz answers; a wrong answer passes the question to the other player once.'
+            : 'Play as a team. Both players choose an answer and it locks when you agree. Correct answers in a row build a streak bonus.'}</p>
+          <div className="play-names">{players.map((name, index) => <label key={index}>Player {index + 1}<input value={name} maxLength={40} onChange={event => setPlayers(current => index === 0 ? [event.target.value, current[1]] : [current[0], event.target.value])} /></label>)}</div>
+          <label className="play-toggle"><input type="checkbox" checked={faceToFace} onChange={e => setFaceToFace(e.target.checked)} />Face to face: turn Player 1’s controls upside down for a phone or tablet laid flat between you</label>
+          <details className="play-keys"><summary>Keyboard controls</summary>
+            <p>{mode === 'versus' ? 'Player 1 buzzes with A, Player 2 with L. The buzzing player answers with 1 to 4.' : 'Player 1 picks with 1 to 4, Player 2 with 7, 8, 9 and 0.'} Enter moves to the next question.</p>
+          </details>
+        </fieldset>
+        {error && <p role="alert" className="play-error">{error}</p>}
+        {config && !config.enabled && <p role="status">The quiz is switched off.</p>}
+        {config?.enabled && !config.ready && <p role="status">The quiz needs more campus data: {config.question_count} verified questions, {config.questions_per_game} needed.</p>}
+        <button className="play-primary" disabled={busy || !config?.enabled || !config.ready || players.some(name => !name.trim())} onClick={() => void start()}>{busy ? 'Starting' : game ? 'Play again' : 'Start game'}</button>
       </div>}
-    </main><aside className="play-leaderboard"><h2>Today’s leaderboard</h2><p>{mode === 'versus' ? 'Versus players' : 'Co-op teams'}</p>{scores.length ? <ol>{scores.map((score, i) => <li key={`${score.ts}-${i}`}><span>{score.name}</span><strong>{score.score}</strong></li>)}</ol> : <p>No scores yet. Start the first game.</p>}<small>Names and scores are stored on this server. Choose a nickname you are happy to display.</small></aside></div>
+
+      {game && <div className="play-game">
+        <div className="play-bar">
+          <span className="num">Question {game.question_number} of {game.total_questions}</span>
+          {game.mode === 'coop' && <span className="num">Team {game.team_score}, streak {game.streak}</span>}
+          {game.remaining_ms !== null && <span role="timer" className="play-timer num">{Math.max(0, Math.ceil(game.remaining_ms / 1000))}s</span>}
+        </div>
+        <p role="status" className="play-status">{statusText}</p>
+        {active && error && <p role="alert" className="play-error">{error}</p>}
+        <div className="play-stage">
+          {pad(0)}
+          {question && <article className="play-question">
+            <h2>{question.question}</h2>
+            <ol className="play-options">{question.options.map((option, i) => <li className={revealed && question.answer_index === i ? 'play-correct' : ''} key={i}>
+              <span className="mono">{i + 1}</span>{option}{revealed && question.answer_index === i && <strong>Correct</strong>}
+            </li>)}</ol>
+            {game.hold_remaining_ms !== null && <p role="status" className="play-hold">Agreed. Locking in.</p>}
+            {revealed && question.evidence && <blockquote>{question.evidence}{safeSource && <a href={safeSource} target="_blank" rel="noopener noreferrer">View campus source</a>}</blockquote>}
+            <div className="play-question-foot">
+              <button type="button" className="play-read" onClick={readQuestion} disabled={!('speechSynthesis' in window)}>Read aloud</button>
+              {game.phase === 'reveal' && <button className="play-primary" onClick={() => void act({ action: 'next' })}>Next question</button>}
+            </div>
+          </article>}
+          {pad(1)}
+        </div>
+      </div>}
+    </main>
+    <aside className="play-leaderboard"><h2>Today’s leaderboard</h2><p>{mode === 'versus' ? 'Versus players' : 'Co-op teams'}</p>
+      {scores.length ? <ol>{scores.map((score, i) => <li key={`${score.ts}-${i}`}><span>{score.name}</span><strong>{score.score}</strong></li>)}</ol> : <p>No scores yet today.</p>}
+      <small>Names and scores are stored on this server. Use a name you are happy to display.</small>
+    </aside></div>
   </section>
 }
