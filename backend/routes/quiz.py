@@ -75,8 +75,11 @@ async def game() -> list[QuizItem]:
 def _today_rows(mode: str) -> list[ScoreRow]:
     start = datetime.combine(date.today(), datetime.min.time()).timestamp()
     with _lock:
-        rows = db().execute("SELECT name, mode, score, ts FROM quiz_scores WHERE mode=? AND ts>=? "
-                            "ORDER BY score DESC, ts ASC LIMIT ?", (mode, start, settings.quiz_leaderboard_size))
+        # One row per player: their best score today (earliest game wins a tie), names compared case-insensitively.
+        rows = db().execute("SELECT name, mode, score, ts FROM (SELECT name, mode, score, ts, ROW_NUMBER() OVER ("
+                            "PARTITION BY lower(trim(name)) ORDER BY score DESC, ts ASC) AS rank FROM quiz_scores "
+                            "WHERE mode=? AND ts>=?) WHERE rank = 1 ORDER BY score DESC, ts ASC LIMIT ?",
+                            (mode, start, settings.quiz_leaderboard_size))
         return [ScoreRow(name=n, mode=m, score=s, at=datetime.fromtimestamp(t).strftime("%H:%M")) for n, m, s, t in rows]
 
 

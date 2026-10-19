@@ -31,7 +31,7 @@ export function PlayMode({ playerName, onError }: { playerName: string; onError:
   const [hold, setHold] = useState<HoldState>(emptyHold()), [now, setNow] = useState(0)
   const video = useRef<HTMLVideoElement | null>(null), socket = useRef<WebSocket | null>(null), timer = useRef<number | undefined>(undefined)
   const deadline = useRef(0), holdRef = useRef<HoldState>(emptyHold())
-  const state = useRef({ phase, index, picked, items }); state.current = { phase, index, picked, items }
+  const state = useRef({ phase, index, picked, items, score }); state.current = { phase, index, picked, items, score }
 
   useEffect(() => {
     request<QuizConfig>('/api/quiz/config').then(setConfig).catch(e => onError(e instanceof Error ? e.message : 'The quiz could not load.'))
@@ -67,11 +67,10 @@ export function PlayMode({ playerName, onError }: { playerName: string; onError:
     if (s.phase !== 'reveal') return
     if (s.index + 1 >= s.items.length) {
       setPhase('done')
-      setScore(final => {
-        request<ScoreRow[]>('/api/quiz/score', 'POST', { name: name.trim(), mode: 'solo', score: final }).then(setBoard).catch(() => undefined)
-        speak(`Well played, ${name.trim()}. You scored ${final} points.`)
-        return final
-      })
+      // Side effects run once here, not inside a state updater (StrictMode calls updaters twice, which saved every game twice).
+      const final = s.score
+      request<ScoreRow[]>('/api/quiz/score', 'POST', { name: name.trim(), mode: 'solo', score: final }).then(setBoard).catch(() => undefined)
+      speak(`Well played, ${name.trim()}. You scored ${final} points.`)
       return
     }
     setIndex(s.index + 1); setPicked(null); setPhase('question')
