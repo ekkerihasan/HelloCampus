@@ -25,7 +25,10 @@ def locality_records(path: Path | None = None) -> list[Record]:
 def student_records(clean_dir: Path, optin_path: Path | None = None) -> list[Record]:
     """Second opt-in gate: even if students.jsonl is stale, only current opt-in usernames get indexed."""
     allowed = optin_usernames(optin_path)
-    return [r for r in read_jsonl(clean_dir / "students.jsonl") if r.entity_id.lower() in allowed]
+    records = [r for r in read_jsonl(clean_dir / "students.jsonl") if r.entity_id.lower() in allowed]
+    for record in records:
+        record.entity_id = record.entity_id.lower()
+    return records
 
 
 async def ingest_all(store: VectorStore, clean_dir: Path | None = None, locality_path: Path | None = None,
@@ -42,8 +45,10 @@ async def ingest_all(store: VectorStore, clean_dir: Path | None = None, locality
 
 async def _main() -> None:
     llm = await OllamaClient().check()
-    print(await ingest_all(VectorStore(llm)))
-    await llm.aclose()
+    try:
+        print(await ingest_all(await asyncio.to_thread(VectorStore, llm)))
+    finally:
+        await llm.aclose()
 
 
 if __name__ == "__main__":

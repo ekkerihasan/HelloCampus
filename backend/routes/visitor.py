@@ -1,6 +1,6 @@
 """Visitor create, fetch, resume by code, and character preference."""
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from backend.llm.characters import CharacterName
 from backend.memory.store import PURPOSES, MemoryStore, Visitor
@@ -12,6 +12,13 @@ router = APIRouter(prefix="/api/visitor")
 class CreateVisitor(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     purpose: str = Field(default="", max_length=60)
+
+    @field_validator("name")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Please enter your name")
+        return value.strip()
 
 
 class CharacterUpdate(BaseModel):

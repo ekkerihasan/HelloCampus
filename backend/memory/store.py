@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from backend.config import settings
 from backend.llm.client import ChatMessage
+from scraper.scrape_github import optin_usernames
 
 CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I/L
 PURPOSES = ("Session or talk", "Judging or mentoring", "Hiring", "Event", "Parent or alumni", "Just visiting")
@@ -80,8 +81,10 @@ class MemoryStore:
         return self.get(vid)  # type: ignore[return-value]
 
     def _row_to_visitor(self, row: sqlite3.Row) -> Visitor:
+        allowed = optin_usernames()
         sl = [r["entity_id"] for r in self._db.execute(
-            "SELECT entity_id FROM shortlist WHERE visitor_id=? ORDER BY added_at", (row["id"],))]
+            "SELECT entity_id FROM shortlist WHERE visitor_id=? ORDER BY added_at", (row["id"],))
+              if r["entity_id"].lower() in allowed]
         return Visitor(id=row["id"], code=row["code"], name=row["name"], purpose=row["purpose"],
                        facts=json.loads(row["facts"]), role=RoleSpec(**json.loads(row["role"])),
                        summary=row["summary"], character=row["character"], shortlist=sl)
@@ -128,6 +131,10 @@ class MemoryStore:
         with self._lock:
             rows = self._db.execute("SELECT role, content FROM turns WHERE visitor_id=? ORDER BY id", (visitor_id,))
             return [ChatMessage(role=r["role"], content=r["content"]) for r in rows]
+
+    def close(self) -> None:
+        with self._lock:
+            self._db.close()
 
     def shortlist_add(self, visitor_id: str, entity_id: str, note: str = "") -> list[str]:
         with self._lock:

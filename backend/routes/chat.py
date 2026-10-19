@@ -1,6 +1,8 @@
 """POST /api/chat: Server-Sent Events stream of meta, token, sources, done."""
 import json
 import logging
+import asyncio
+from weakref import WeakValueDictionary
 from typing import AsyncIterator
 
 from fastapi import APIRouter, Depends
@@ -11,6 +13,7 @@ from backend.routes.deps import optional, require
 
 log = logging.getLogger("hello_campus.routes.chat")
 router = APIRouter()
+_visitor_locks: WeakValueDictionary = WeakValueDictionary()
 
 
 def sse(ev: ChatEvent) -> str:
@@ -22,8 +25,11 @@ async def chat(req: ChatRequest, llm=Depends(require("llm")), store=Depends(opti
                mem=Depends(optional("memory"))) -> StreamingResponse:
     async def gen() -> AsyncIterator[str]:
         try:
-            async for ev in run_turn(req, llm, store, mem):
-                yield sse(ev)
+            key = f"{id(mem)}:{req.visitor_id}" if req.visitor_id else f"anonymous:{id(req)}"
+            lock = _visitor_locks.setdefault(key, asyncio.Lock())
+            async with lock:
+                async for ev in run_turn(req, llm, store, mem):
+                    yield sse(ev)
         except Exception as exc:  # noqa: BLE001, surface to UI instead of a dropped stream
             log.exception("chat turn failed")
             yield sse(ChatEvent(event="error", data={"message": f"Something went wrong: {exc}"}))

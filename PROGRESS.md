@@ -1,7 +1,23 @@
 # Hello Campus: Progress Log
 
+## Latest verified checkpoint
+Completed: T0.1, T0.2, T1.2, T1.3, T1.4, T1.5, T2.1, T2.4 and T2.5.
+Hiring and README flows passed synthetic endpoint acceptance tests; real demonstration still requires opted-in profiles.
+T1.1 is partial: real campus and achievement snapshots exist; students and real locality data are not available.
+T0.3/T1.6 need real training data and a Colab run. T0.4 needs a physical phone.
+T1.7/T2.2 speech work remains local and is excluded from this feature checkpoint. T2.3 video and phase 3 demo verification remain pending.
+
+Evidence from this continuation:
+- `HC_OFFLINE=1 python -m pytest backend/tests -q`: 27 passed, 2 public-network scraper tests skipped, 22.70 s.
+- `python -m scripts.smoke`: PASS in 84.6 s using real local Gemma 1B and nomic embeddings. Both characters generated with AITM citations, unrelated content was refused, vegetarian preference extraction and resume passed, empty shortlist stayed honest.
+- `npm run build` and `npm run lint` in frontend: passed.
+- `git diff --check`: passed.
+- Core smoke does not certify speech, gestures, physical phone access or the complete offline demo. Chat first-token latency was about 30 s with the current retrieved context, so further performance work remains.
+
+Changes reviewed: responsive welcome/chat/hiring UI, official AITM source snapshot, bounded memory and current-consent filtering, worker-thread database operations, evidence URL post-check, smaller local model fallback, setup documentation and core smoke utility.
+
 ## Needs the team
-- Real URLs for `scraper/sources.yaml` (college, clubs, hackathons). Nothing is scraped until these exist.
+- Campus URL provided by user: https://aitm.edu.in/. Use verified official links for campus and achievements. Club and hackathon sources still welcome.
 - `data/students_optin.csv` export from the opt-in form (GitHub usernames). No student is indexed without it.
 - Real values for `data/locality.json` (every placeholder is marked `"placeholder": true`).
 - Venue frames for YOLO in `training/own_frames/<class>/` and a Colab run of `training/gesture_yolo.ipynb`.
@@ -32,6 +48,17 @@ $ npm run dev (frontend) ; curl localhost:5173/api/health
 same JSON through the Vite proxy
 Review: config in config.py, no blocking calls in routes, no em dashes.
 Follow-ups: none
+
+## Continuation: setup blockers and core slice
+T0.3 status: blocked. The notebook exists, but no HaGRID dataset or venue frames are available. No real class counts, training metrics or model export can be claimed.
+T0.4 status: blocked. Tunnel script exists, but phone HTTPS and permission checks require a physical phone. Use localhost for development.
+T1.1 status: in progress. Scraper code exists; real sources and opt-in CSV are still missing. The real-record acceptance check cannot pass yet.
+Plan:
+- Validate locality entries and create explicitly marked placeholders, never index them.
+- Implement persistent Chroma ingestion, current opt-in filtering, retrieval and source metadata.
+- Implement streamed Guide/Analyst chat with refusal and SQLite visitor resume memory.
+- Add acceptance tests using isolated, explicitly synthetic fixtures; also run local Ollama integration checks.
+- Add a smoke runner and record checks, failures and outstanding team inputs here.
 
 ## T0.2 Ollama client with streaming and per-call temperature
 Status: done
@@ -95,3 +122,36 @@ Next steps when resuming:
 
 ## T1.5 Visitor memory
 Status: in progress (code written: backend/memory/store.py, extract.py, routes/visitor.py; tests not written yet)
+
+## Continuation checks: AITM snapshot, chat and memory
+User supplied https://aitm.edu.in/. Its robots.txt allows public pages with a one-second crawl delay.
+Evidence:
+$ python -m scraper.scrape_web
+campus=3 real records; achievements=1 real record. Saved under data/clean with official source URLs and dates.
+$ python -m backend.rag.ingest
+campus=4 chunks, achievements=1, students=0, locality=0. No invented or placeholder records indexed.
+$ pytest backend/tests/test_chat_memory.py backend/tests/test_locality.py -q
+11 passed. Tests use synthetic data in temporary folders, real SQLite, and a controlled LLM double.
+Checks cover both character temperatures, streamed tokens before sources, refusal without generation, visitor resume,
+saved preferences in prompts, extraction failure recovery, restart persistence and the ten-message retention limit.
+Fixes: blocking Chroma writes moved to worker threads; revoked consent checked at retrieval as well as ingestion;
+blank requests rejected; greeting-plus-question cannot bypass grounding; extraction failure is visible and nonfatal.
+Status: T1.1 remains partial until student and locality input arrive. T1.4/T1.5 await a live Ollama smoke check.
+
+## Next slice: frontend and hiring
+Plan:
+- Replace the frontend starter with a responsive welcome, resume and streamed chat interface.
+- Add hiring role intake, matching, evidence filtering, shortlist, compare, interview questions and export.
+- Add student README before/after generation using only currently consented records.
+- Test evidence filtering and consent revocation with isolated fixtures; compile and lint the frontend.
+- Keep unavailable speech/gesture modes visibly unavailable until their models are installed and tested.
+
+## Speech and hardware continuation plan
+- Use Kokoro 82M through kokoro-onnx for CPU inference, preserving the specified voice model while avoiding a second PyTorch runtime on this 7.3 GB laptop.
+- Install faster-whisper, kokoro-onnx and soundfile; cache speech weights under data/models for offline startup.
+- Implement bounded raw-audio STT and per-sentence WAV synthesis in worker threads; surface missing model status.
+- Connect microphone recording and queued sentence playback with immediate interruption.
+- Benchmark the already installed gemma3:1b against gemma3:4b and use the smaller model on this laptop if needed (BUILD.md section 8 allows a smaller tag).
+Evidence so far: gemma3:1b cold request 9.12 s, 32 generated tokens in 2.01 s; full comparison pending.
+Benchmark complete: gemma3:4b cold request 109.45 s, prompt 20.44 s and generation 8.32 s.
+Stack deviation: default changed to gemma3:1b with gemma3:4b fallback for this 7.3 GB CPU laptop, as allowed by BUILD.md section 8.

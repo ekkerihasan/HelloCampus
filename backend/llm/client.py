@@ -45,9 +45,11 @@ class OllamaClient:
     async def warm_up(self) -> "OllamaClient":
         """Load both models into RAM at startup so the first visitor does not wait for a cold load."""
         start = time.perf_counter()
-        await self._http.post("/api/generate", json={"model": self.model, "keep_alive": settings.llm_keep_alive})
-        await self._http.post("/api/embed", json={"model": self.embed_model, "input": ["warm up"],
+        r = await self._http.post("/api/generate", json={"model": self.model, "keep_alive": settings.llm_keep_alive})
+        r.raise_for_status()
+        r = await self._http.post("/api/embed", json={"model": self.embed_model, "input": ["warm up"],
                                                   "keep_alive": settings.llm_keep_alive})
+        r.raise_for_status()
         log.info("warm up %d ms", (time.perf_counter() - start) * 1000)
         return self
 
@@ -56,7 +58,8 @@ class OllamaClient:
             "model": self.model,
             "messages": [m.model_dump() for m in messages],
             "stream": stream,
-            "options": {"temperature": temperature, "num_ctx": settings.llm_num_ctx},
+            "options": {"temperature": temperature, "num_ctx": settings.llm_num_ctx,
+                        "num_predict": settings.llm_json_output_tokens if json_mode else settings.llm_max_output_tokens},
             "think": False,
             "keep_alive": settings.llm_keep_alive,
         }

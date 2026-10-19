@@ -1,5 +1,6 @@
 """Low-temperature fact extraction after each turn. Returns facts to upsert into visitor memory."""
 import logging
+import asyncio
 
 from backend.llm.client import ChatMessage, OllamaClient
 from backend.memory.store import MemoryStore, Visitor
@@ -42,5 +43,5 @@ async def extract_and_save(llm: OllamaClient, mem: MemoryStore, visitor: Visitor
         return visitor
     facts = {**visitor.facts, **{k: _clean_list(data.get(k, visitor.facts.get(k, []))) for k in FACT_KEYS}}
     summary = str(data.get("summary") or visitor.summary)[:300]
-    log.info("extracted facts for %s: %s", visitor.code, facts)
-    return mem.update(visitor.id, facts=facts, summary=summary) or visitor
+    log.info("visitor memory updated")
+    return await asyncio.to_thread(mem.update, visitor.id, facts=facts, summary=summary) or visitor

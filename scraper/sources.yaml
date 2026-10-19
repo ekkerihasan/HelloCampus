@@ -1,11 +1,15 @@
 # Real, public URLs only. The team fills these in. Never invent URLs.
 # Each entry: a URL string, or {url: ..., title: ...} to override the page title.
 # Login-walled pages, LinkedIn and Instagram are not allowed.
-campus: []
+campus:
+  - {url: 'https://aitm.edu.in/about/', title: 'About AITM Bhatkal'}
+  - {url: 'https://aitm.edu.in/contact/', title: 'AITM contact and visiting information'}
+  - {url: 'https://aitm.edu.in/departments/computer-science-engineering/', title: 'AITM Computer Science and Engineering'}
   # - https://<college-site>/about
   # - https://<college-site>/departments
   # - {url: https://<college-site>/events/<event>, title: "Event name"}
-achievements: []
+achievements:
+  - {url: 'https://aitm.edu.in/news/aitm-cricket/', title: 'AITM cricket achievement'}
   # - https://<college-site>/news/<hackathon-win>
   # - https://devpost.com/software/<project>
 # Students come only from data/students_optin.csv via scraper/scrape_github.py

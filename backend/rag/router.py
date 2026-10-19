@@ -15,7 +15,7 @@ RULES: dict[str, tuple[str, ...]] = {
                  "portfolio", "frontend", "backend", "full stack", "ml engineer", "talent", "who built", "who knows"),
     "achievements": ("hackathon", "won", "winner", "award", "prize", "achievement", "competition", "rank",
                      "medal", "recognition", "best project", "proud"),
-    "campus": ("campus", "college", "department", "club", "event", "session", "talk", "schedule", "timing",
+    "campus": ("aitm", "anjuman", "campus", "college", "department", "club", "event", "session", "talk", "schedule", "timing",
                "when", "where is", "library", "lab", "contact", "fest", "course", "faculty", "history", "about"),
 }
 
@@ -39,7 +39,8 @@ async def route(question: str, llm: OllamaClient | None = None) -> list[str]:
             f"Question: {question}"
         )
         data = await llm.chat_json([ChatMessage(role="user", content=prompt)])
-        picked = [c for c in data.get("collections", []) if c in COLLECTIONS]
+        values = data.get("collections", [])
+        picked = [c for c in values if c in COLLECTIONS] if isinstance(values, list) else []
         if picked:
             log.info("llm router picked %s", picked)
             return picked

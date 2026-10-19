@@ -11,12 +11,17 @@ class Settings(BaseSettings):
 
     # LLM (Ollama)
     ollama_url: str = "http://127.0.0.1:11434"
-    llm_model: str = "gemma3:4b"
-    llm_fallback_model: str = "qwen3:4b"
+    llm_model: str = "gemma3:1b"
+    llm_fallback_model: str = "gemma3:4b"
     embed_model: str = "nomic-embed-text"
     llm_timeout_s: float = 120.0
     llm_num_ctx: int = 4096
     llm_keep_alive: str = "60m"  # keep models resident between turns
+    llm_max_output_tokens: int = 180
+    llm_json_output_tokens: int = 700
+    chat_context_chars: int = 6000
+    chat_max_message_chars: int = 4000
+    memory_extract_timeout_s: float = 60.0
 
     # Character temperatures (BUILD.md 4.2)
     temp_guide: float = 0.8
@@ -45,6 +50,16 @@ class Settings(BaseSettings):
     tts_voice: str = "af_heart"
     tts_lang_code: str = "a"
     tts_sample_rate: int = 24000
+    models_dir: Path = ROOT / "data" / "models"
+    tts_model_path: Path = ROOT / "data" / "models" / "kokoro-v1.0.onnx"
+    tts_voices_path: Path = ROOT / "data" / "models" / "voices-v1.0.bin"
+    speech_cpu_threads: int = 2
+    speech_max_audio_bytes: int = 8_000_000
+    speech_max_duration_s: float = 45.0
+    speech_min_duration_s: float = 0.25
+    speech_max_text_chars: int = 600
+    stt_beam_size: int = 1
+    tts_speed: float = 1.0
     enable_kannada: bool = False
 
     # Vision

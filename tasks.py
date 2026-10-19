@@ -42,7 +42,7 @@ TASKS = {
     "ingest": lambda: run([PY, "-m", "backend.rag.ingest"]),
     "validate-locality": lambda: run([PY, "-m", "backend.rag.locality"]),
     "test": lambda: run([PY, "-m", "pytest", "backend/tests", "-q"]),
-    "smoke": lambda: run([PY, "scripts/smoke.py"]),
+    "smoke": lambda: run([PY, "-m", "scripts.smoke"]),
     "tunnel": lambda: run(["bash", "scripts/tunnel.sh"]),
 }
 

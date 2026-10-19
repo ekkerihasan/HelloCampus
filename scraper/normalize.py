@@ -65,19 +65,24 @@ class PoliteFetcher:
             try:
                 self._wait()
                 r = self.client.get(f"{base}/robots.txt")
-                rp.parse(r.text.splitlines() if r.status_code == 200 else [])
+                if r.status_code == 200:
+                    rp.parse(r.text.splitlines())
+                elif r.status_code in (404, 410):
+                    rp.parse([])
+                else:
+                    rp.parse(["User-agent: *", "Disallow: /"])
             except httpx.HTTPError:
-                rp.parse([])
+                rp.parse(["User-agent: *", "Disallow: /"])
             self._robots[base] = rp
         return self._robots[base].can_fetch(settings.scrape_user_agent, url)
 
     def get(self, url: str, check_robots: bool = True, use_cache: bool = True) -> str | None:
         cache = self.cache_dir / (hashlib.sha1(url.encode()).hexdigest() + ".raw")
-        if use_cache and cache.exists():
-            return cache.read_text(encoding="utf-8")
         if check_robots and not self.allowed(url):
             log.warning("robots.txt disallows %s, skipping", url)
             return None
+        if use_cache and cache.exists():
+            return cache.read_text(encoding="utf-8")
         self._wait()
         try:
             r = self.client.get(url)

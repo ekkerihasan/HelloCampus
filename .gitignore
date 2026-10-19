@@ -8,6 +8,9 @@ frontend/dist/
 data/raw/*
 !data/raw/.gitkeep
 data/chroma/
+data/models/
 data/*.sqlite3
 *.log
 backend/vision/weights/*.pt
+backend/vision/weights/*.onnx
+frontend/*.tsbuildinfo

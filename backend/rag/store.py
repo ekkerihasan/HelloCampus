@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from backend.config import settings
 from backend.llm.client import OllamaClient
 from scraper.normalize import Record
+from scraper.scrape_github import optin_usernames
 
 log = logging.getLogger("hello_campus.rag")
 
@@ -39,8 +40,10 @@ class Source(BaseModel):
 
 
 def chunk_words(text: str, tokens: int | None = None, overlap: int | None = None) -> list[str]:
-    size = int((tokens or settings.chunk_tokens) * WORDS_PER_TOKEN)
-    step = size - int((overlap or settings.chunk_overlap_tokens) * WORDS_PER_TOKEN)
+    size = max(1, int((settings.chunk_tokens if tokens is None else tokens) * WORDS_PER_TOKEN))
+    step = size - int((settings.chunk_overlap_tokens if overlap is None else overlap) * WORDS_PER_TOKEN)
+    if step <= 0:
+        raise ValueError("Chunk overlap must be smaller than chunk size")
     words = text.split()
     if len(words) <= size:
         return [" ".join(words)] if words else []
@@ -52,7 +55,8 @@ class VectorStore:
         self.llm = llm
         self.client = chromadb.PersistentClient(path=str(path or settings.chroma_dir))
         self.cols = {
-            name: self.client.get_or_create_collection(name, metadata={"hnsw:space": "cosine"})
+            name: self.client.get_or_create_collection(name, embedding_function=None,
+                                                      metadata={"hnsw:space": "cosine"})
             for name in COLLECTIONS
         }
 
@@ -71,13 +75,14 @@ class VectorStore:
                 metas.append({"collection": collection, "title": r.title, "source_url": r.source_url,
                               "last_checked": r.last_checked, "entity_id": r.entity_id, "record_id": r.id})
         col = self.cols[collection]
-        stale = set(col.get(include=[])["ids"]) - set(ids)
-        if stale:
-            col.delete(ids=list(stale))
+        stale = set((await asyncio.to_thread(col.get, include=[]))["ids"]) - set(ids)
         for i in range(0, len(ids), EMBED_BATCH):
             batch = docs[i:i + EMBED_BATCH]
             vecs = await self.llm.embed([DOC_PREFIX + d for d in batch])
-            col.upsert(ids=ids[i:i + EMBED_BATCH], documents=batch, embeddings=vecs, metadatas=metas[i:i + EMBED_BATCH])
+            await asyncio.to_thread(col.upsert, ids=ids[i:i + EMBED_BATCH], documents=batch,
+                                    embeddings=vecs, metadatas=metas[i:i + EMBED_BATCH])
+        if stale:
+            await asyncio.to_thread(col.delete, ids=list(stale))
         log.info("ingested %s: %d chunks from %d records, removed %d stale", collection, len(ids), len(records), len(stale))
         return len(ids)
 
@@ -89,13 +94,22 @@ class VectorStore:
 
         def _query() -> list[Hit]:
             hits: list[Hit] = []
+            allowed = optin_usernames() if "students" in collections else set()
             for name in collections:
                 col = self.cols[name]
                 n = col.count()
                 if n == 0:
                     continue
-                res = col.query(query_embeddings=[qvec], n_results=min(k, n), where=where or None)
+                query_where = where
+                if name == "students":
+                    if not allowed:
+                        continue
+                    consent = {"entity_id": {"$in": sorted(allowed)}}
+                    query_where = {"$and": [where, consent]} if where else consent
+                res = col.query(query_embeddings=[qvec], n_results=min(k, n), where=query_where or None)
                 for doc, meta, dist in zip(res["documents"][0], res["metadatas"][0], res["distances"][0]):
+                    if name == "students" and meta.get("entity_id", "").lower() not in allowed:
+                        continue
                     hits.append(Hit(text=doc, score=round(1 - dist, 4), **{
                         f: meta.get(f, "") for f in ("title", "source_url", "collection", "entity_id", "last_checked", "record_id")}))
             return sorted(hits, key=lambda h: -h.score)[:k]

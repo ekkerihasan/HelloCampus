@@ -5,7 +5,9 @@ import re
 import time
 from typing import AsyncIterator
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+from backend.config import settings
 
 from backend.llm.characters import CharacterName, character
 from backend.llm.client import OllamaClient
@@ -20,9 +22,17 @@ _background: set[asyncio.Task] = set()
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=settings.chat_max_message_chars)
     character: CharacterName = CharacterName.guide
     visitor_id: str | None = None
+
+    @field_validator("message")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Please enter a message")
+        return value
 
 
 class ChatEvent(BaseModel):
@@ -41,8 +51,11 @@ async def run_turn(req: ChatRequest, llm: OllamaClient, store: VectorStore | Non
                    mem: MemoryStore | None) -> AsyncIterator[ChatEvent]:
     start = time.perf_counter()
     char = character(req.character)
-    visitor = mem.get(req.visitor_id) if (mem and req.visitor_id) else None
-    history = mem.history(visitor.id) if (mem and visitor) else []
+    visitor = await asyncio.to_thread(mem.get, req.visitor_id) if (mem and req.visitor_id) else None
+    if req.visitor_id and visitor is None:
+        yield ChatEvent(event="error", data={"message": "Visitor not found. Resume your visit or start a new one."})
+        return
+    history = await asyncio.to_thread(mem.history, visitor.id) if (mem and visitor) else []
     smalltalk = is_smalltalk(req.message)
 
     hits: list[Hit] = []
@@ -71,9 +84,17 @@ async def run_turn(req: ChatRequest, llm: OllamaClient, store: VectorStore | Non
         yield ChatEvent(event="sources", data={"sources": [s.model_dump() for s in srcs], "refused": False})
 
     if mem and visitor:
-        mem.add_turn(visitor.id, "user", req.message)
-        mem.add_turn(visitor.id, "assistant", answer)
-        task = asyncio.create_task(extract_and_save(llm, mem, visitor, req.message, answer))
-        _background.add(task)
-        task.add_done_callback(_background.discard)
+        await asyncio.to_thread(mem.add_turn, visitor.id, "user", req.message)
+        await asyncio.to_thread(mem.add_turn, visitor.id, "assistant", answer)
+        await asyncio.to_thread(mem.update, visitor.id, character=req.character.value)
+        if not smalltalk:
+            yield ChatEvent(event="memory", data={"status": "saving"})
+            try:
+                await asyncio.wait_for(extract_and_save(llm, mem, visitor, req.message, answer),
+                                       timeout=settings.memory_extract_timeout_s)
+                yield ChatEvent(event="memory", data={"status": "saved"})
+            except Exception:
+                log.exception("memory extraction failed")
+                yield ChatEvent(event="memory", data={"status": "failed",
+                    "message": "Your visit is saved, but I couldn't update preferences this time."})
     yield ChatEvent(event="done", data={"ms": int((time.perf_counter() - start) * 1000)})

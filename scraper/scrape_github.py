@@ -6,6 +6,7 @@ import base64
 import csv
 import json
 import logging
+import re
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -37,7 +38,7 @@ def load_optin(path: Path | None = None) -> list[OptinStudent]:
         if (row.get("consent") or "").strip().lower() not in ("yes", "y", "true", "1"):
             continue
         user = (row.get("github_username") or "").strip().lstrip("@")
-        if user:
+        if re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?", user):
             out.append(OptinStudent(name=(row.get("name") or user).strip(), github_username=user,
                                     headline=(row.get("headline") or "").strip()))
     return out
@@ -122,8 +123,8 @@ def scrape(optin_path: Path | None = None, out_dir: Path | None = None, gh: GitH
     records: list[Record] = []
     for s in load_optin(optin_path):
         records.extend(student_records(s, gh))
-    if records:
-        write_jsonl(records, (out_dir or settings.clean_dir) / "students.jsonl")
+    # An empty consent list must also clear a stale student snapshot.
+    write_jsonl(records, (out_dir or settings.clean_dir) / "students.jsonl")
     return len(records)
 
 
