@@ -8,6 +8,7 @@ This file is the source of truth for scope, tasks, and acceptance criteria. `CLA
 
 ## 1. Event constraints (non-negotiable)
 
+
 | Constraint | Detail |
 |---|---|
 | Duration | 1 day (about 8 working hours). Demo freeze 1 hour before judging. |
