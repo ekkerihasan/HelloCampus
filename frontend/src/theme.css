@@ -218,6 +218,17 @@
 :root .project-skills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 :root .project-skills span { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #e8f4ee; color: var(--ok); }
 
+/* Shortlist card (replaces the download). */
+:root .shortlist-card { margin: 4px 0 22px; padding: 18px 22px; border-radius: 18px; border: 1px solid var(--line-strong); background: var(--paper); box-shadow: var(--shadow-1); animation: luxe-rise .35s var(--ease) both; }
+:root .shortlist-card h3 { font-family: var(--serif); font-size: 18px; font-weight: 500; margin: 0 0 10px; }
+:root .shortlist-card ol { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+:root .shortlist-card li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+:root .shortlist-card li:last-child { border-bottom: 0; }
+:root .shortlist-card li::marker { color: var(--gold); font-family: var(--serif); }
+:root .shortlist-card li > a:not(.linkedin-link) { color: var(--plum-2); text-decoration: none; }
+:root .shortlist-remove { margin-left: auto; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); font-size: 11px; transition: background .2s, color .2s; }
+:root .shortlist-remove:hover:not(:disabled) { background: #f8e7e4; color: var(--bad); }
+
 /* Mode tabs and the Guide / Analyst switch. */
 :root .mode-tabs, :root .character-toggle { background: rgba(255, 253, 249, .7); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
 :root .mode-tabs button, :root .character-toggle button { border-radius: 999px; transition: background .3s var(--ease), color .3s, box-shadow .3s; }
