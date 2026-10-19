@@ -205,6 +205,19 @@
 :root .talent-summary-list { margin: 14px 0 0; padding-left: 22px; display: grid; gap: 8px; font-size: 14px; line-height: 1.7; color: var(--ink-soft); animation: luxe-rise .35s var(--ease) both; }
 :root .talent-summary-list li::marker { color: var(--gold); font-family: var(--serif); font-weight: 600; }
 
+/* Project evidence: repo, one-line summary, matched skills. */
+:root .project-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 10px; }
+:root .project-item { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fffcf6; transition: border-color .25s, transform .25s var(--ease); }
+:root .project-item:hover { border-color: var(--gold-2); transform: translateX(2px); }
+:root .project-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+:root .project-head > a:first-child { font-weight: 700; color: var(--plum); text-decoration: none; }
+:root .project-head > a:first-child:hover { color: var(--gold); }
+:root .project-lang { font-size: 10px; padding: 2px 8px; border-radius: 999px; background: #efe9f4; color: var(--plum-2); }
+:root .project-live { font-size: 11px; color: var(--ok); text-decoration: none; margin-left: auto; }
+:root .project-summary { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); }
+:root .project-skills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+:root .project-skills span { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #e8f4ee; color: var(--ok); }
+
 /* Mode tabs and the Guide / Analyst switch. */
 :root .mode-tabs, :root .character-toggle { background: rgba(255, 253, 249, .7); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
 :root .mode-tabs button, :root .character-toggle button { border-radius: 999px; transition: background .3s var(--ease), color .3s, box-shadow .3s; }

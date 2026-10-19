@@ -25,6 +25,59 @@ class Candidate(BaseModel):
     claims: list[EvidenceClaim] = Field(default_factory=list)
     sources: list[str] = Field(default_factory=list)
     linkedin_url: str = ""  # from the opt-in CSV only; a contact link, never evidence
+    projects: list["Project"] = Field(default_factory=list)
+
+
+class Project(BaseModel):
+    """One stored repository, summarised only from its own description or README (no model call)."""
+    name: str
+    url: str
+    summary: str
+    language: str = ""
+    live_url: str = ""
+    last_push: str = ""
+    matched_skills: list[str] = Field(default_factory=list)
+
+
+_SENTENCE_NOISE = re.compile(r"^(<|!\[|\[!|#|```|\||-{3,}|={3,})")
+
+
+def _readme_sentence(text: str) -> str:
+    """First real prose sentence of the stored README excerpt: skips HTML, badges, headings, tables and code."""
+    excerpt = text.split("README excerpt:", 1)[-1]
+    for raw in excerpt.splitlines():
+        line = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", raw.strip())  # keep link text only
+        line = re.sub(r"[*_`>]+", "", line).strip()
+        if len(line) < 25 or _SENTENCE_NOISE.match(raw.strip()) or "http" in line:
+            continue
+        sentence = re.split(r"(?<=[.!?])\s", line, maxsplit=1)[0]
+        if len(sentence.split()) < 6 or re.search(r"\s[.,;:]$|\s[.,;:]\s", sentence):
+            continue  # too short to say anything, or a sentence left broken by a removed link
+        return sentence[:180].rstrip() + ("…" if len(sentence) > 180 else "")
+    return ""
+
+
+def _skill_hit(skill: str, text: str) -> bool:
+    return re.search(rf"(?<![\w]){re.escape(skill)}(?![\w+#])", text, re.I) is not None
+
+
+def projects_for(records: list[Record], skills: list[str] | None = None) -> list[Project]:
+    out = []
+    for r in records:
+        repo = r.extra.get("repo")
+        if not isinstance(repo, dict) or not repo.get("url"):
+            continue
+        if str(repo.get("name", "")).lower() == (r.entity_id or "").lower():
+            continue  # the profile README repo is not a project
+        language = repo.get("language") or ""
+        summary = (repo.get("description") or "").strip() or _readme_sentence(r.text) or             (f"{language} project" if language else "Public repository")
+        homepage = repo.get("homepage") or ""
+        out.append(Project(name=repo.get("name") or r.title, url=repo["url"], summary=summary[:200], language=language,
+                           live_url=homepage if urlparse(homepage).scheme in ("http", "https") else "",
+                           last_push=str(repo.get("pushed_at") or "")[:10],
+                           matched_skills=[k for k in (skills or []) if _skill_hit(k, r.text)]))
+    out.sort(key=lambda p: (len(p.matched_skills), p.last_push), reverse=True)
+    return out[:6]
 
 
 def student_data() -> dict[str, list[Record]]:
@@ -68,12 +121,13 @@ def filter_claims(raw: object, records: list[Record]) -> list[EvidenceClaim]:
     return claims[:5]
 
 
-def candidate(entity_id: str, records: list[Record], claims=None) -> Candidate:
+def candidate(entity_id: str, records: list[Record], claims=None, skills: list[str] | None = None) -> Candidate:
     profile = next((r for r in records if r.extra.get("kind") == "profile"), records[0])
     return Candidate(entity_id=entity_id, name=profile.extra.get("name") or entity_id,
         headline=profile.extra.get("headline", ""), languages=profile.extra.get("top_languages", []),
         claims=claims or [], sources=sorted(allowed_urls(records)),
-        linkedin_url=next((s.linkedin_url for s in load_optin() if s.github_username.lower() == entity_id.lower()), ""))
+        linkedin_url=next((s.linkedin_url for s in load_optin() if s.github_username.lower() == entity_id.lower()), ""),
+        projects=projects_for(records, skills))
 
 
 async def intake(llm, description: str) -> RoleSpec:
@@ -112,7 +166,7 @@ async def match(llm, store, role: RoleSpec) -> list[Candidate]:
         if key in chosen and key not in seen:
             claims = filter_claims(row.get("claims"), chosen[key])
             if claims:
-                result.append(candidate(key, chosen[key], claims))
+                result.append(candidate(key, chosen[key], claims, [*role.must_have, *role.nice_to_have]))
                 seen.add(key)
     # Check again after inference in case consent was withdrawn while it ran.
     allowed = await asyncio.to_thread(optin_usernames)
