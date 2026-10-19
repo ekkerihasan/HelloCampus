@@ -59,8 +59,9 @@ async def role(body: RoleRequest, mem=Depends(require("memory")), llm=Depends(re
 async def match(body: VisitRequest, mem=Depends(require("memory")), llm=Depends(require("llm")),
                 store=Depends(require("rag"))) -> list[service.Candidate]:
     v = await asyncio.to_thread(visitor, mem, body.visitor_id)
-    if not v.role.title:
-        raise HTTPException(422, "Describe the role first")
+    # Keyword-only searches ("Skills: React") have skills but no title; either is enough to match on.
+    if not (v.role.title or v.role.must_have or v.role.nice_to_have):
+        raise HTTPException(422, "Describe the role or pick at least one skill first")
     try:
         return await service.match(llm, store, v.role)
     except ProviderError as exc:

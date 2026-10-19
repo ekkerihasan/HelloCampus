@@ -1,4 +1,5 @@
-:root { font-family: 'Segoe UI', Arial, sans-serif; color: #292634; background: #f7f7f2; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; font-weight: 400; font-size: 14px; }
+@import './theme.css';
+:root { font-family: var(--sans); color: var(--ink); background: var(--ivory); font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; font-weight: 400; font-size: 14px; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 360px; }
 button, input, textarea { font: inherit; color: inherit; border-radius: 8px; }
