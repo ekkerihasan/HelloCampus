@@ -11,8 +11,17 @@ Proposal: remove `data/chroma/` from `.gitignore` (keep `data/memory.sqlite3` ig
 Effort: S
 Accept when: `git check-ignore data/chroma/x logs/usage.jsonl` prints only `logs/usage.jsonl`.
 
-## M-007 [P0] [bug] Colab notebook fails at cell 3: HF_REPO and HF_FILE defined later in cell 6
+## M-008 [P1] [perf] Chat on gemini-3.8-flash took 76 s; thinking is never limited
 Status: open
+Found: cycle 3, PROGRESS.md T0.2 log
+Evidence: PROGRESS.md: "PASS gemini chat gemini-3.8-flash 76486 ms (two 30 s ReadTimeouts, then 15.2 s for 1 token)" and "gemini vision gemini-3.8-flash 12671 ms (after one 30 s ReadTimeout)". Same log: gemini-3.5-flash-lite json 678 ms, vision 1381 ms. `grep thinking|reasoning_effort backend/` finds nothing, so 3.8 Flash runs at its default thinking level. https://ai.google.dev/gemini-api/docs/openai: `reasoning_effort` maps to `thinking_level`; "Reasoning cannot be turned off for ... 3 models"; `minimal` returns an error on 3.8 Flash (monitor/RESEARCH.md), so `low` is the floor. Groq is blocked here, so this failover path is the real chat path on demo day.
+Why it matters: ADDENDUM-01 budget is chat first token under 1 s and Look under 4 s. A 15 to 76 s wait kills demo steps and makes the 30 s timeout plus retries the visitor's experience.
+Proposal: (1) send `reasoning_effort: "low"` (config value, e.g. `GEMINI_REASONING_EFFORT=low`) on every OpenAI-compat chat and tool call to 3.8 Flash; (2) measure 5 chat calls each on 3.8-flash(low) and 3.5-flash-lite, and pick the faster acceptable one for `GEMINI_CHAT_MODEL`. Consider flash-lite for `GEMINI_VISION_MODEL` too (Look measured 1.4 s); (3) a separate shorter first-byte timeout for streaming (e.g. 8 s) that fails over to the fast model instead of waiting 30 s twice.
+Effort: S to M
+Accept when: chat first token p50 under 3 s over 5 real calls, Look under 4 s, numbers logged in PROGRESS.md.
+
+## M-007 [P0] [bug] Colab notebook fails at cell 3: HF_REPO and HF_FILE defined later in cell 6
+Status: verified cycle 3 (cell 3 defines HF_REPO/HF_FILE; cell 13 copies outputs to Drive, tries files.download, prints paths; test_training.py 29 passed incl. use-before-define check). Colab run itself not yet done.
 Found: cycle 3, review of `training/gesture_yolo.ipynb` (branch pivot/cloud-core)
 Evidence: cell 3 calls `hf_hub_download(repo_id=HF_REPO, filename=HF_FILE, ...)`, but `HF_REPO` and `HF_FILE` are first assigned in cell 6. Running top to bottom on a fresh runtime gives `NameError: name 'HF_REPO' is not defined`. The file name itself is correct: the HF API lists `hagrid-sample-120k-384p.zip` (and license cc-by-sa-4.0).
 Why it matters: T4.0 training is the long pole for ADDENDUM-03. The user is about to run it through the VS Code Colab extension, and a failure at cell 3 wastes the GPU session.
