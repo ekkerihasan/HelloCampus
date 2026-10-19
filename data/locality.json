@@ -1,0 +1,10 @@
+[
+  {"id": "food-001", "type": "food", "name": "PLACEHOLDER lunch spot 1", "what_to_order": "", "price_range": "", "distance_from_campus": "", "veg_options": false, "timings": "", "notes": "Team: replace with a real place and set placeholder to false", "last_checked": "2026-10-19", "placeholder": true},
+  {"id": "food-002", "type": "food", "name": "PLACEHOLDER chai or snack spot", "what_to_order": "", "price_range": "", "distance_from_campus": "", "veg_options": false, "timings": "", "notes": "Team: replace with a real place and set placeholder to false", "last_checked": "2026-10-19", "placeholder": true},
+  {"id": "travel-001", "type": "travel", "name": "PLACEHOLDER nearest bus stand", "how_to_get_there": "", "fare": "", "duration": "", "distance_from_campus": "", "notes": "Team: real route, fare and duration", "last_checked": "2026-10-19", "placeholder": true},
+  {"id": "travel-002", "type": "travel", "name": "PLACEHOLDER railway station", "how_to_get_there": "", "fare": "", "duration": "", "distance_from_campus": "", "notes": "Team: real route, fare and duration", "last_checked": "2026-10-19", "placeholder": true},
+  {"id": "travel-003", "type": "travel", "name": "PLACEHOLDER airport", "how_to_get_there": "", "fare": "", "duration": "", "distance_from_campus": "", "notes": "Team: real route, fare and duration", "last_checked": "2026-10-19", "placeholder": true},
+  {"id": "place-001", "type": "place", "name": "PLACEHOLDER place worth a visit", "why_visit": "", "timings": "", "distance_from_campus": "", "notes": "Team: real place", "last_checked": "2026-10-19", "placeholder": true},
+  {"id": "practical-001", "type": "practical", "name": "PLACEHOLDER nearest ATM", "what": "", "timings": "", "distance_from_campus": "", "notes": "Team: real location", "last_checked": "2026-10-19", "placeholder": true},
+  {"id": "practical-002", "type": "practical", "name": "PLACEHOLDER pharmacy", "what": "", "timings": "", "distance_from_campus": "", "notes": "Team: real location", "last_checked": "2026-10-19", "placeholder": true}
+]

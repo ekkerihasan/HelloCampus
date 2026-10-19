@@ -1,0 +1,11 @@
+# Real, public URLs only. The team fills these in. Never invent URLs.
+# Each entry: a URL string, or {url: ..., title: ...} to override the page title.
+# Login-walled pages, LinkedIn and Instagram are not allowed.
+campus: []
+  # - https://<college-site>/about
+  # - https://<college-site>/departments
+  # - {url: https://<college-site>/events/<event>, title: "Event name"}
+achievements: []
+  # - https://<college-site>/news/<hackathon-win>
+  # - https://devpost.com/software/<project>
+# Students come only from data/students_optin.csv via scraper/scrape_github.py
