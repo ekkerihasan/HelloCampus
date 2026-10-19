@@ -6,6 +6,8 @@ from typing import Any, Awaitable, Callable
 
 from pydantic import BaseModel, ValidationError
 
+from backend.providers.retry import ProviderError
+
 
 @dataclass
 class ToolContext:
@@ -99,3 +101,5 @@ async def run_tool(name: str, raw_args: dict | None, ctx: ToolContext) -> dict:
         return await t.run(ctx, args)
     except ToolError as exc:
         return {"error": str(exc)}
+    except ProviderError as exc:  # a busy or unreachable provider becomes data the host can say out loud
+        return {"error": exc.user_message}

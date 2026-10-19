@@ -121,7 +121,8 @@ class OpenAICompatClient:
         body = self._body(messages, temperature, model, **extra)
         r = await call_with_retry(self.provider, model, "tools" if tools else ("json" if json_mode else "chat"),
                                   self.ring, lambda k: self._http.post("/chat/completions", json=body,
-                                                                       headers=self._auth(k)), _tokens)
+                                                                       headers=self._auth(k)), _tokens,
+                                  fail_fast_429=True)
         msg = r.json()["choices"][0]["message"]
         return ChatMessage(role="assistant", content=msg.get("content") or "",
                            tool_calls=parse_tool_calls(msg.get("tool_calls")) or None)
@@ -141,7 +142,7 @@ class OpenAICompatClient:
                 await resp.aclose()
             return resp
 
-        resp = await call_with_retry(self.provider, model, "stream", self.ring, send)
+        resp = await call_with_retry(self.provider, model, "stream", self.ring, send, fail_fast_429=True)
         first = True
         try:
             async for line in resp.aiter_lines():

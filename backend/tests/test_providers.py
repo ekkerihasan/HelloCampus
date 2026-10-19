@@ -309,3 +309,12 @@ async def test_blocked_provider_not_retried_when_others_are_busy(monkeypatch):
     assert await llm.chat(HI, 0.2) == "ok"  # everything cooling down: busy gemini is tried, blocked groq is not
     assert len(groq_calls) == 1
     await llm.aclose()
+
+
+async def test_embedding_429_waits_and_retries_instead_of_failing():
+    """No backup for embeddings, so a 429 on the only key must back off and retry, not fail at once."""
+    replies = iter([httpx.Response(429, headers={"retry-after": "0"}),
+                    httpx.Response(200, json={"embeddings": [{"values": [0.5]}]})])
+    g = GeminiClient("k", transport=httpx.MockTransport(lambda req: next(replies)))
+    assert await g.embed_query("library hours") == [0.5]
+    await g.aclose()

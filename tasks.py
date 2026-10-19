@@ -43,6 +43,7 @@ TASKS = {
     "rag-eval": lambda: run([PY, "-m", "scripts.rag_eval"]),
     "verify-models": lambda: run([PY, "-m", "scripts.verify_models"]),
     "validate-locality": lambda: run([PY, "-m", "backend.rag.locality"]),
+    "validate-posts": lambda: run([PY, "-m", "backend.rag.posts"]),
     "test": lambda: run([PY, "-m", "pytest", "backend/tests", "-q"]),
     "smoke": lambda: run([PY, "-m", "scripts.smoke"]),
     "tunnel": lambda: run([PY, "-m", "scripts.tunnel"]),

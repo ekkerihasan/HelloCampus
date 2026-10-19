@@ -12,6 +12,16 @@ Plan (addendum section 10 order, keyless work first):
 Blocked on the team: GEMINI_API_KEY and GROQ_API_KEYS in .env. Without them, provider calls are tested with transport doubles only and no acceptance criterion that needs a real call is marked done.
 Environment: Python 3.12.6 is the only interpreter on this laptop now (the 3.10 note below is outdated). Fresh .venv created from backend/requirements.txt.
 
+## T2.4 hiring with real opted-in students (2026-10-19)
+Status: done
+- data/students_optin.csv: 11 GitHub logins (exact casing) from the user. Written with consent=pending first, flipped to yes after the user confirmed in this session that all 11 agreed.
+- python -m scraper.scrape_github (public API only, 1 request per second): 70 records (11 profiles, 59 repos), 2.5 min. README 404s are repos without a README.
+- Ingest: students 70 chunks embedded, 131 chunks total.
+- Bug found: right after embedding 70 records the query embedding got 429 and /api/hiring/match returned HTTP 500. Fixes: the M-011 fail-fast on 429 now applies only to text calls that can fail over (fail_fast_429); embeddings, vision and Live tokens back off and retry. Provider errors inside tools become a spoken error message, and the hiring routes answer 503 with a retry hint instead of 500. Test test_embedding_429_waits_and_retries_instead_of_failing.
+Evidence (real): role "A frontend intern who has built React or JavaScript web apps" -> 4 candidates (syedfiras, zaid-ctrlx, abdulrehman-18, zephyruszorro); every claim URL verified against the stored records for that student (allowed_urls): all True.
+- data/posts.json plus backend/rag/posts.py: hand-pasted posts (for example AITM LinkedIn posts) with their public URLs; placeholders never indexed. LinkedIn is not fetched automatically: robots.txt says "User-agent: * Disallow: /". The user's first short link resolves to a post by Applied AI Launchpad, not AITM.
+$ pytest backend/tests -q -> 98 passed, 2 skipped
+
 ## Lunch places and judging time (user-approved, 2026-10-19)
 Status: done
 - data/locality.json food-001 Layali Arabia Restaurant and food-002 Al Khaleej Arabian Restaurant from monitor/LOCALITY-DRAFT.md "USER-APPROVED" (address, cuisine, hours where shown, source_url to the listing pages). Price, distance and veg options were not shown, so they stay empty; veg_options is now yes/no/unknown and unknown is spoken as "not confirmed", never as "no veg". Other locality entries remain placeholders (not indexed).

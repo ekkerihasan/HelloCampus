@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from backend.hiring import service
 from backend.memory.store import MemoryStore, RoleSpec, Visitor
+from backend.providers.retry import ProviderError
 from backend.routes.deps import require
 
 router = APIRouter()
@@ -46,7 +47,10 @@ def records_for(entity_id: str):
 @router.post("/api/hiring/role")
 async def role(body: RoleRequest, mem=Depends(require("memory")), llm=Depends(require("llm"))) -> RoleSpec:
     await asyncio.to_thread(visitor, mem, body.visitor_id)
-    spec = await service.intake(llm, body.description)
+    try:
+        spec = await service.intake(llm, body.description)
+    except ProviderError as exc:
+        raise HTTPException(503, f"{exc.user_message} Please try again in a moment.") from exc
     await asyncio.to_thread(mem.update, body.visitor_id, role=spec, character="analyst")
     return spec
 
@@ -57,7 +61,10 @@ async def match(body: VisitRequest, mem=Depends(require("memory")), llm=Depends(
     v = await asyncio.to_thread(visitor, mem, body.visitor_id)
     if not v.role.title:
         raise HTTPException(422, "Describe the role first")
-    return await service.match(llm, store, v.role)
+    try:
+        return await service.match(llm, store, v.role)
+    except ProviderError as exc:
+        raise HTTPException(503, f"{exc.user_message} Your role is saved, so just try Find matches again.") from exc
 
 
 @router.post("/api/hiring/compare")

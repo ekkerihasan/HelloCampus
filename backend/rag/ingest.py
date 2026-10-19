@@ -9,7 +9,7 @@ from pathlib import Path
 
 from backend.config import settings
 from backend.llm.gemini import GeminiClient
-from backend.rag import locality
+from backend.rag import locality, posts
 from backend.rag.store import IngestStats, VectorStore
 from scraper.normalize import Record, read_jsonl
 from scraper.scrape_github import optin_usernames
@@ -87,12 +87,13 @@ def derived_records(records: list[Record]) -> list[Record]:
 async def ingest_all(store: VectorStore, clean_dir: Path | None = None, locality_path: Path | None = None,
                      optin_path: Path | None = None) -> dict[str, IngestStats]:
     clean_dir = clean_dir or settings.clean_dir
+    pasted = posts.post_records()
     # One chunk per achievement, student profile section and locality entry (7.3); campus prose is chunked.
     return {
         "campus": await store.ingest("campus", (campus := apply_corrections(read_jsonl(clean_dir / "campus.jsonl")))
-                                     + derived_records(campus)),
-        "achievements": await store.ingest("achievements", apply_corrections(read_jsonl(clean_dir / "achievements.jsonl")),
-                                           whole=True),
+                                     + derived_records(campus) + pasted["campus"]),
+        "achievements": await store.ingest("achievements", apply_corrections(read_jsonl(clean_dir / "achievements.jsonl"))
+                                           + pasted["achievements"], whole=True),
         "students": await store.ingest("students", student_records(clean_dir, optin_path), whole=True),
         "locality": await store.ingest("locality", locality_records(locality_path), whole=True),
     }

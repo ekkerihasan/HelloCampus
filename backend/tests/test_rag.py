@@ -172,3 +172,18 @@ def test_derived_department_list_cites_each_real_page():
     chips = sources_for([hit])
     assert [c.url for c in chips] == ["https://aitm.edu.in/departments/civil/", "https://aitm.edu.in/departments/mech/"]
     assert all(c.citations == [1] for c in chips) and not any(c.url.startswith("derived") for c in chips)
+
+
+def test_pasted_posts_index_only_real_rows_with_their_links(tmp_path):
+    import json
+    from backend.rag.posts import post_records
+    f = tmp_path / "posts.json"
+    f.write_text(json.dumps([
+        {"id": "post-001", "title": "Robotics win", "text": "Our team won the robotics expo.", "posted_on": "2026-10-01",
+         "source_url": "https://www.linkedin.com/posts/example-1", "last_checked": "2026-10-19"},
+        {"id": "post-002", "title": "PLACEHOLDER", "text": "x", "source_url": "https://www.linkedin.com/x",
+         "collection": "campus", "last_checked": "2026-10-19", "placeholder": True}]))
+    recs = post_records(f)
+    assert recs["campus"] == [] and len(recs["achievements"]) == 1
+    r = recs["achievements"][0]
+    assert r.source_url == "https://www.linkedin.com/posts/example-1" and "Posted on 2026-10-01" in r.text

@@ -63,8 +63,10 @@ def backoff_delay(attempt: int, retry_after: str | None = None) -> float:
 async def call_with_retry(provider: str, model: str, op: str, ring: KeyRing,
                           send: Callable[[str], Awaitable[httpx.Response]],
                           tokens: Callable[[httpx.Response], tuple[int | None, int | None]] | None = None,
-                          ) -> httpx.Response:
-    """`send(key)` performs one request. Returns the successful response or raises ProviderError."""
+                          fail_fast_429: bool = False) -> httpx.Response:
+    """`send(key)` performs one request. Returns the successful response or raises ProviderError.
+    fail_fast_429: the caller has another backend to fail over to, so a 429 on the only key stops at once.
+    Without it (embeddings, vision, Live tokens) a 429 waits with backoff and retries."""
     if not model:
         raise MissingConfig(provider, f"model ID for {op}")
     last_status: int | None = None
@@ -95,7 +97,7 @@ async def call_with_retry(provider: str, model: str, op: str, ring: KeyRing,
         if response.status_code not in RETRYABLE:
             break
         if response.status_code == 429:
-            if len(ring.keys) <= 1:  # nothing to rotate to: fail over to the next backend now (M-011)
+            if fail_fast_429 and len(ring.keys) <= 1:  # nothing to rotate to: fail over to the next backend (M-011)
                 break
             ring.rotate()
             log.warning("%s 429 on key %d, rotating", provider, key_index)

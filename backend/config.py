@@ -99,6 +99,7 @@ class Settings(BaseSettings):
     clean_dir: Path = ROOT / "data" / "clean"
     locality_path: Path = ROOT / "data" / "locality.json"
     schedule_path: Path = ROOT / "data" / "schedule.json"
+    posts_path: Path = ROOT / "data" / "posts.json"  # hand-pasted posts with their public URLs
     students_optin_path: Path = ROOT / "data" / "students_optin.csv"
     ingest_report_path: Path = ROOT / "data" / "ingest_report.json"
     rag_eval_path: Path = ROOT / "backend" / "tests" / "rag_eval.yaml"
